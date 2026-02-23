@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
@@ -29,13 +29,6 @@ export default function EditTemplatePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [subject, setSubject] = useState("");
-  const [html, setHtml] = useState("");
-  const [text, setText] = useState("");
-  const [initialized, setInitialized] = useState(false);
-
   const { data, isLoading } = useQuery({
     queryKey: ["template", params.id],
     queryFn: () =>
@@ -44,16 +37,27 @@ export default function EditTemplatePage() {
 
   const template: TemplateDetail | undefined = data?.data;
 
-  useEffect(() => {
-    if (template && !initialized) {
-      setName(template.name);
-      setDescription(template.description);
-      setSubject(template.subject);
-      setHtml(template.html);
-      setText(template.text);
-      setInitialized(true);
-    }
-  }, [template, initialized]);
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    subject: string;
+    html: string;
+    text: string;
+  } | null>(null);
+
+  const { name, description, subject, html, text } = form ?? {
+    name: template?.name ?? "",
+    description: template?.description ?? "",
+    subject: template?.subject ?? "",
+    html: template?.html ?? "",
+    text: template?.text ?? "",
+  };
+
+  const setName = (v: string) => setForm((f) => ({ ...f!, name: v }));
+  const setDescription = (v: string) => setForm((f) => ({ ...f!, description: v }));
+  const setSubject = (v: string) => setForm((f) => ({ ...f!, subject: v }));
+  const setHtml = (v: string) => setForm((f) => ({ ...f!, html: v }));
+  const setText = (v: string) => setForm((f) => ({ ...f!, text: v }));
 
   const updateMutation = useMutation({
     mutationFn: (payload: {
