@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mailit.fullname" . }}-api
+  labels:
+    {{- include "mailit.labels" . | nindent 4 }}
+    {{- include "mailit.api.selectorLabels" . | nindent 4 }}
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mailit.api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mailit.api.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: migrate
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["mailit", "migrate", "--up"]
+          env:
+            {{- include "mailit.api.env" . | nindent 12 }}
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            {{- if .Values.api.smtp.enabled }}
+            - name: smtp
+              containerPort: 25
+              protocol: TCP
+            - name: submission
+              containerPort: 587
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          env:
+            {{- include "mailit.api.env" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+
+{{- define "mailit.api.env" }}
+- name: MAILIT_DATABASE_HOST
+  value: {{ include "mailit.postgresql.host" . }}
+- name: MAILIT_DATABASE_PORT
+  value: {{ include "mailit.postgresql.port" . | quote }}
+- name: MAILIT_DATABASE_USER
+  value: {{ .Values.postgresql.auth.username | default "mailit" }}
+- name: MAILIT_DATABASE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "mailit.fullname" . }}-secrets
+      key: postgres-password
+- name: MAILIT_DATABASE_DBNAME
+  value: {{ .Values.postgresql.auth.database | default "mailit" }}
+- name: MAILIT_REDIS_ADDR
+  value: {{ include "mailit.redis.addr" . }}
+- name: MAILIT_AUTH_JWT_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "mailit.fullname" . }}-secrets
+      key: jwt-secret
+- name: MAILIT_AUTH_API_KEY_PREFIX
+  value: {{ .Values.auth.apiKeyPrefix | default "re_" }}
+- name: MAILIT_SMTP_OUTBOUND_HOSTNAME
+  value: {{ .Values.domain }}
+- name: MAILIT_SMTP_INBOUND_DOMAIN
+  value: {{ .Values.domain }}
+- name: MAILIT_DKIM_MASTER_ENCRYPTION_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "mailit.fullname" . }}-secrets
+      key: dkim-master-key
+- name: MAILIT_DKIM_SELECTOR
+  value: {{ .Values.dkim.selector | default "mailit" }}
+{{- range $key, $value := .Values.api.env }}
+- name: {{ $key }}
+  value: {{ $value | quote }}
+{{- end }}
+{{- end }}

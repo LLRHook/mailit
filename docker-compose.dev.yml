@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  mailit-api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: builder
+    command: go run ./cmd/mailit serve --config /app/config/mailit.yaml
+    ports:
+      - "8080:8080"
+      - "25:25"
+      - "587:587"
+    volumes:
+      - .:/app
+    environment:
+      - MAILIT_DATABASE_HOST=postgres
+      - MAILIT_DATABASE_PORT=5432
+      - MAILIT_DATABASE_USER=mailit
+      - MAILIT_DATABASE_PASSWORD=devpassword
+      - MAILIT_DATABASE_DBNAME=mailit
+      - MAILIT_REDIS_ADDR=redis:6379
+      - MAILIT_AUTH_JWT_SECRET=dev-secret-change-in-production
+      - MAILIT_DKIM_MASTER_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
+      - MAILIT_LOGGING_FORMAT=text
+      - MAILIT_LOGGING_LEVEL=debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=mailit
+      - POSTGRES_PASSWORD=devpassword
+      - POSTGRES_DB=mailit
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailit"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-dev-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres-dev-data:
+  redis-dev-data:

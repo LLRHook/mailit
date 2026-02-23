@@ -1,0 +1,129 @@
+# MailIt Configuration
+# Copy to mailit.yaml and edit values for your environment.
+# All settings can be overridden with environment variables using the
+# prefix MAILIT_ and underscores as delimiters.
+# Example: server.http_addr -> MAILIT_SERVER_HTTP_ADDR
+
+# ─── HTTP API Server ────────────────────────────────────────────────
+server:
+  http_addr: ":8080"          # Address to bind the HTTP server
+  read_timeout: "30s"         # Maximum duration for reading the entire request
+  write_timeout: "30s"        # Maximum duration before timing out writes of the response
+  shutdown_timeout: "10s"     # Graceful shutdown timeout
+
+# ─── PostgreSQL Database ────────────────────────────────────────────
+database:
+  host: "localhost"
+  port: 5432
+  user: "mailit"
+  password: "changeme"
+  dbname: "mailit"
+  sslmode: "disable"          # disable | require | verify-ca | verify-full
+  max_open_conns: 25          # Maximum number of open connections to the database
+  max_idle_conns: 5           # Maximum number of idle connections in the pool
+  conn_max_lifetime: "5m"     # Maximum amount of time a connection may be reused
+  auto_migrate: true          # Run database migrations on startup
+
+# ─── Redis ──────────────────────────────────────────────────────────
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0                       # Redis database number
+  pool_size: 10               # Maximum number of connections in the pool
+
+# ─── Authentication ─────────────────────────────────────────────────
+auth:
+  jwt_secret: "changeme"      # Secret key for signing JWT tokens (min 32 chars recommended)
+  jwt_expiry: "24h"           # JWT token expiration duration
+  api_key_prefix: "re_"       # Prefix for generated API keys (Resend-compatible)
+  bcrypt_cost: 12             # bcrypt hashing cost (10-14 recommended)
+
+# ─── Outbound SMTP (sending emails) ────────────────────────────────
+smtp_outbound:
+  hostname: "mail.example.com"    # FQDN of this mail server (used in EHLO and reverse DNS)
+  port: 25                        # Port for outbound SMTP connections
+  helo_domain: "mail.example.com" # Domain used in SMTP HELO/EHLO greeting
+  tls_policy: "opportunistic"     # opportunistic | mandatory | none
+  connect_timeout: "30s"          # Timeout for establishing SMTP connections
+  send_timeout: "5m"              # Timeout for the entire send operation
+  max_recipients: 50              # Maximum recipients per SMTP transaction
+
+# ─── Inbound SMTP (receiving bounces, replies) ─────────────────────
+smtp_inbound:
+  enabled: true
+  listen_addr: ":25"              # Address to bind the inbound SMTP server
+  domain: "mail.example.com"      # Domain for accepting inbound mail
+  max_message_bytes: 26214400     # Maximum message size in bytes (25 MB)
+  read_timeout: "60s"             # Timeout for reading inbound SMTP data
+  write_timeout: "60s"            # Timeout for writing inbound SMTP responses
+
+# ─── DKIM Signing ──────────────────────────────────────────────────
+dkim:
+  selector: "mailit"              # DKIM selector (appears in DNS as mailit._domainkey)
+  key_bits: 2048                  # RSA key size for generated DKIM keys
+  master_encryption_key: "changeme-generate-a-32-byte-hex"  # 32-byte hex key for encrypting stored DKIM private keys
+
+# ─── Background Workers (asynq) ────────────────────────────────────
+workers:
+  concurrency: 20                 # Number of concurrent worker goroutines
+  queues:                         # Queue names and their priority weights
+    critical: 6
+    default: 3
+    low: 1
+  retry_delays:                   # Progressive retry delay schedule
+    - "10s"
+    - "30s"
+    - "1m"
+    - "5m"
+    - "15m"
+    - "30m"
+    - "1h"
+    - "2h"
+
+# ─── Rate Limiting ─────────────────────────────────────────────────
+rate_limit:
+  enabled: true
+  default_rps: 10                 # Default requests per second for API endpoints
+  send_rps: 2                     # Requests per second for email send endpoint
+  batch_rps: 1                    # Requests per second for batch send endpoint
+  window: "1s"                    # Rate limit sliding window duration
+
+# ─── Webhooks ──────────────────────────────────────────────────────
+webhooks:
+  signing_algorithm: "hmac-sha256"  # Algorithm for signing webhook payloads
+  timeout: "30s"                    # HTTP timeout for webhook delivery
+  max_retries: 5                    # Maximum number of delivery attempts
+  retry_delays:                     # Progressive retry delay schedule
+    - "30s"
+    - "2m"
+    - "10m"
+    - "30m"
+    - "2h"
+
+# ─── DNS Resolution ────────────────────────────────────────────────
+dns:
+  resolver: "system"              # system | custom (e.g., "8.8.8.8:53")
+  timeout: "10s"                  # DNS query timeout
+  cache_ttl: "5m"                 # Duration to cache DNS lookup results
+
+# ─── Logging ────────────────────────────────────────────────────────
+logging:
+  level: "info"                   # debug | info | warn | error
+  format: "json"                  # json | text
+  output: "stdout"                # stdout | stderr | /path/to/file
+
+# ─── Attachment Storage ─────────────────────────────────────────────
+storage:
+  type: "local"                   # local | s3
+  local_path: "./data/attachments"
+  s3:
+    bucket: ""
+    region: ""
+    endpoint: ""                  # Custom S3-compatible endpoint (e.g., MinIO)
+    access_key: ""
+    secret_key: ""
+
+# ─── Suppression List ──────────────────────────────────────────────
+suppression:
+  auto_add_hard_bounces: true     # Automatically suppress addresses that hard bounce
+  auto_add_complaints: true       # Automatically suppress addresses that file spam complaints

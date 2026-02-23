@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mailit-api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      - "${SMTP_PORT:-25}:25"
+      - "${SMTP_SUBMISSION_PORT:-587}:587"
+    environment:
+      - MAILIT_DATABASE_HOST=postgres
+      - MAILIT_DATABASE_PORT=5432
+      - MAILIT_DATABASE_USER=${POSTGRES_USER:-mailit}
+      - MAILIT_DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - MAILIT_DATABASE_DBNAME=${POSTGRES_DB:-mailit}
+      - MAILIT_REDIS_ADDR=redis:6379
+      - MAILIT_AUTH_JWT_SECRET=${JWT_SECRET}
+      - MAILIT_SMTP_OUTBOUND_HOSTNAME=${MAILIT_DOMAIN}
+      - MAILIT_SMTP_INBOUND_DOMAIN=${MAILIT_DOMAIN}
+      - MAILIT_DKIM_MASTER_ENCRYPTION_KEY=${DKIM_MASTER_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - mailit-data:/data
+
+  mailit-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://mailit-api:8080
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+    depends_on:
+      mailit-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mailit}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-mailit}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mailit-data:
+  postgres-data:
+  redis-data:

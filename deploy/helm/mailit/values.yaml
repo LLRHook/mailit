@@ -1,0 +1,122 @@
+## MailIt Helm Chart Values
+
+## API Configuration
+api:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/mailit-dev/mailit/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    httpPort: 8080
+  smtp:
+    enabled: true
+    service:
+      type: LoadBalancer
+      port: 25
+      submissionPort: 587
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  env: {}
+
+## Web Dashboard Configuration
+web:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/mailit-dev/mailit/web
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+## Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: mail.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: web
+        - path: /api
+          pathType: Prefix
+          service: api
+  tls:
+    - secretName: mailit-tls
+      hosts:
+        - mail.example.com
+
+## PostgreSQL
+postgresql:
+  enabled: true
+  auth:
+    username: mailit
+    password: ""  # auto-generated if empty
+    database: mailit
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+  # External PostgreSQL (when postgresql.enabled=false)
+  external:
+    host: ""
+    port: 5432
+    username: mailit
+    password: ""
+    database: mailit
+    sslmode: require
+
+## Redis
+redis:
+  enabled: true
+  auth:
+    enabled: false
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+  # External Redis (when redis.enabled=false)
+  external:
+    addr: ""
+    password: ""
+
+## Auth
+auth:
+  jwtSecret: ""  # auto-generated if empty
+  apiKeyPrefix: "re_"
+
+## DKIM
+dkim:
+  selector: mailit
+  masterEncryptionKey: ""  # auto-generated if empty
+
+## Domain
+domain: mail.example.com

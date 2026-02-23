@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS contact_topics;
+DROP TABLE IF EXISTS topics;

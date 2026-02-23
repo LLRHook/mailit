@@ -1,0 +1,63 @@
+# Binaries
+/mailit
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build
+/bin/
+/dist/
+
+# Test
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Config (user configs, not examples)
+config/mailit.yaml
+config/mailit.local.yaml
+
+# DKIM keys and data
+*.pem
+dkim_private.key
+/data/
+
+# Vendor (if used)
+/vendor/
+
+# Node.js (web/)
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/.env
+
+# Docker
+docker-compose.override.yml
+
+# Temporary
+tmp/
+*.log
+
+# Helm packaged charts
+deploy/helm/mailit/charts/
+*.tgz
