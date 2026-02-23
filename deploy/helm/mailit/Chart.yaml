@@ -1,0 +1,14 @@
+apiVersion: v2
+name: mailit
+description: Self-hosted email platform - open-source Resend alternative
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - email
+  - smtp
+  - resend
+  - self-hosted
+maintainers:
+  - name: MailIt
+    url: https://github.com/mailit-dev/mailit
