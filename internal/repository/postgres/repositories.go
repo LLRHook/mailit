@@ -52,6 +52,7 @@ type DomainRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Domain, error)
 	GetByTeamAndID(ctx context.Context, teamID, id uuid.UUID) (*model.Domain, error)
 	GetByTeamAndName(ctx context.Context, teamID uuid.UUID, name string) (*model.Domain, error)
+	GetVerifiedByName(ctx context.Context, name string) (*model.Domain, error)
 	List(ctx context.Context, teamID uuid.UUID, limit, offset int) ([]model.Domain, int, error)
 	Update(ctx context.Context, domain *model.Domain) error
 	Delete(ctx context.Context, id uuid.UUID) error

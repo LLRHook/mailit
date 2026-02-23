@@ -20,11 +20,18 @@ services:
       - MAILIT_SMTP_OUTBOUND_HOSTNAME=${MAILIT_DOMAIN}
       - MAILIT_SMTP_INBOUND_DOMAIN=${MAILIT_DOMAIN}
       - MAILIT_DKIM_MASTER_ENCRYPTION_KEY=${DKIM_MASTER_KEY}
+      - MAILIT_SERVER_CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
     volumes:
       - mailit-data:/data
@@ -36,7 +43,7 @@ services:
     ports:
       - "${WEB_PORT:-3000}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://mailit-api:8080
+      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:8080}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
     depends_on:

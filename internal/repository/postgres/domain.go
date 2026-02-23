@@ -89,6 +89,19 @@ func (r *domainRepository) GetByTeamAndName(ctx context.Context, teamID uuid.UUI
 	return d, nil
 }
 
+func (r *domainRepository) GetVerifiedByName(ctx context.Context, name string) (*model.Domain, error) {
+	query := fmt.Sprintf(`SELECT %s FROM domains WHERE name = $1 AND status = 'verified' LIMIT 1`, domainColumns)
+
+	d, err := scanDomain(r.pool.QueryRow(ctx, query, name))
+	if err != nil {
+		if isNoRows(err) {
+			return nil, notFound("domain")
+		}
+		return nil, fmt.Errorf("get verified domain by name: %w", err)
+	}
+	return d, nil
+}
+
 func (r *domainRepository) List(ctx context.Context, teamID uuid.UUID, limit, offset int) ([]model.Domain, int, error) {
 	countQuery := `SELECT COUNT(*) FROM domains WHERE team_id = $1`
 	var total int

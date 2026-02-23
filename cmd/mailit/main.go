@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	gosmtp "github.com/emersion/go-smtp"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,6 +26,15 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mailit-dev/mailit/internal/config"
+	"github.com/mailit-dev/mailit/internal/engine"
+	"github.com/mailit-dev/mailit/internal/handler"
+	"github.com/mailit-dev/mailit/internal/repository/postgres"
+	"github.com/mailit-dev/mailit/internal/server"
+	"github.com/mailit-dev/mailit/internal/server/middleware"
+	"github.com/mailit-dev/mailit/internal/service"
+	smtppkg "github.com/mailit-dev/mailit/internal/smtp"
+	"github.com/mailit-dev/mailit/internal/webhook"
+	"github.com/mailit-dev/mailit/internal/worker"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -162,28 +172,157 @@ func runServe(configPath string) {
 		DB:       cfg.Redis.DB,
 	}
 
+	asynqClient := asynq.NewClient(asynqRedisOpt)
+	defer asynqClient.Close()
+
 	asynqSrv := asynq.NewServer(asynqRedisOpt, asynq.Config{
 		Concurrency: cfg.Workers.Concurrency,
 		Queues:      cfg.Workers.Queues,
 		Logger:      newAsynqLogger(logger),
 	})
 
-	// TODO: Register task handlers via asynq.ServeMux when worker package is ready.
-	mux := asynq.NewServeMux()
+	// --- Repositories ---
+	userRepo := postgres.NewUserRepository(pool)
+	teamRepo := postgres.NewTeamRepository(pool)
+	teamMemberRepo := postgres.NewTeamMemberRepository(pool)
+	emailRepo := postgres.NewEmailRepository(pool)
+	emailEventRepo := postgres.NewEmailEventRepository(pool)
+	domainRepo := postgres.NewDomainRepository(pool)
+	dnsRecordRepo := postgres.NewDomainDNSRecordRepository(pool)
+	apiKeyRepo := postgres.NewAPIKeyRepository(pool)
+	audienceRepo := postgres.NewAudienceRepository(pool)
+	contactRepo := postgres.NewContactRepository(pool)
+	contactPropertyRepo := postgres.NewContactPropertyRepository(pool)
+	topicRepo := postgres.NewTopicRepository(pool)
+	segmentRepo := postgres.NewSegmentRepository(pool)
+	templateRepo := postgres.NewTemplateRepository(pool)
+	templateVersionRepo := postgres.NewTemplateVersionRepository(pool)
+	broadcastRepo := postgres.NewBroadcastRepository(pool)
+	webhookRepo := postgres.NewWebhookRepository(pool)
+	webhookEventRepo := postgres.NewWebhookEventRepository(pool)
+	suppressionRepo := postgres.NewSuppressionRepository(pool)
+	inboundEmailRepo := postgres.NewInboundEmailRepository(pool)
+	logRepo := postgres.NewLogRepository(pool)
 
-	// Set up HTTP server.
-	// TODO: Wire up the router from the server package.
-	httpHandler := http.NewServeMux()
-	httpHandler.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+	// --- Engine ---
+	dnsResolver := engine.NewDNSResolver(cfg.DNS.Resolver, cfg.DNS.Timeout)
+	smtpSender := engine.NewSender(engine.SenderConfig{
+		Hostname:       cfg.SMTPOutbound.Hostname,
+		HeloDomain:     cfg.SMTPOutbound.HELODomain,
+		TLSPolicy:      cfg.SMTPOutbound.TLSPolicy,
+		ConnectTimeout: cfg.SMTPOutbound.ConnectTimeout,
+		SendTimeout:    cfg.SMTPOutbound.SendTimeout,
+		MaxRecipients:  cfg.SMTPOutbound.MaxRecipients,
+	}, dnsResolver, logger)
+	emailSenderAdapter := engine.NewWorkerAdapter(smtpSender)
+
+	// --- Webhook Dispatcher ---
+	dispatcher := webhook.NewDispatcher(
+		webhookRepo,
+		webhookEventRepo,
+		asynqClient,
+		webhook.DispatcherConfig{
+			Timeout:    cfg.Webhooks.Timeout,
+			MaxRetries: cfg.Webhooks.MaxRetries,
+		},
+		logger,
+	)
+
+	webhookDispatchFn := func(ctx context.Context, teamID uuid.UUID, eventType string, payload interface{}) {
+		if err := dispatcher.Dispatch(ctx, teamID, eventType, payload); err != nil {
+			logger.Error("webhook dispatch failed", "error", err)
+		}
+	}
+
+	// --- Services ---
+	services := &service.Services{
+		Auth:            service.NewAuthService(userRepo, teamRepo, teamMemberRepo, cfg.Auth.JWTSecret, cfg.Auth.JWTExpiry, cfg.Auth.BcryptCost),
+		Email:           service.NewEmailService(emailRepo, suppressionRepo, asynqClient, rdb),
+		Domain:          service.NewDomainService(domainRepo, dnsRecordRepo, asynqClient, cfg.DKIM.Selector, cfg.DKIM.MasterEncryptionKey),
+		APIKey:          service.NewAPIKeyService(apiKeyRepo, cfg.Auth.APIKeyPrefix),
+		Audience:        service.NewAudienceService(audienceRepo),
+		Contact:         service.NewContactService(contactRepo, audienceRepo),
+		ContactProperty: service.NewContactPropertyService(contactPropertyRepo),
+		Topic:           service.NewTopicService(topicRepo),
+		Segment:         service.NewSegmentService(segmentRepo, audienceRepo),
+		Template:        service.NewTemplateService(templateRepo, templateVersionRepo),
+		Broadcast:       service.NewBroadcastService(broadcastRepo, asynqClient),
+		Webhook:         service.NewWebhookService(webhookRepo),
+		InboundEmail:    service.NewInboundEmailService(inboundEmailRepo),
+		Log:             service.NewLogService(logRepo),
+	}
+
+	// --- Handlers ---
+	handlers := handler.NewHandlers(services)
+
+	// --- API Key auth closures ---
+	apiKeyLookup := func(ctx context.Context, keyHash string) (*middleware.AuthContext, error) {
+		key, err := apiKeyRepo.GetByHash(ctx, keyHash)
+		if err != nil {
+			return nil, err
+		}
+		return &middleware.AuthContext{
+			TeamID:     key.TeamID,
+			Permission: key.Permission,
+			AuthMethod: "api_key",
+		}, nil
+	}
+
+	apiKeyLastUsed := func(ctx context.Context, keyHash string, usedAt time.Time) {
+		_ = apiKeyRepo.UpdateLastUsed(ctx, keyHash, usedAt)
+	}
+
+	// --- HTTP Server ---
+	httpServer := server.New(server.Config{
+		Addr:           cfg.Server.HTTPAddr,
+		ReadTimeout:    cfg.Server.ReadTimeout,
+		WriteTimeout:   cfg.Server.WriteTimeout,
+		JWTSecret:      cfg.Auth.JWTSecret,
+		APIKeyPrefix:   cfg.Auth.APIKeyPrefix,
+		CORSOrigins:    cfg.Server.CORSOrigins,
+		RateLimitCfg: middleware.RateLimitConfig{
+			Enabled:    cfg.RateLimit.Enabled,
+			DefaultRPS: cfg.RateLimit.DefaultRPS,
+			SendRPS:    cfg.RateLimit.SendRPS,
+			BatchRPS:   cfg.RateLimit.BatchRPS,
+			Window:     cfg.RateLimit.Window,
+		},
+		Redis:          rdb,
+		APIKeyLookup:   apiKeyLookup,
+		APIKeyLastUsed: apiKeyLastUsed,
+		Handlers:       handlers,
+		Logger:         logger,
 	})
 
-	httpServer := &http.Server{
-		Addr:         cfg.Server.HTTPAddr,
-		Handler:      httpHandler,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
+	// --- Worker Mux ---
+	workerHandlers := worker.Handlers{
+		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, emailSenderAdapter, webhookDispatchFn, logger),
+		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, asynqClient, logger),
+		DomainVerify:   worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
+		Bounce:         worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),
+		Inbound:        worker.NewInboundHandler(inboundEmailRepo, webhookDispatchFn, logger),
+		Cleanup:        worker.NewCleanupHandler(webhookEventRepo, logRepo, logger),
+		WebhookDeliver: worker.NewWebhookDeliverHandler(dispatcher, logger),
+	}
+	mux := worker.NewMux(workerHandlers)
+
+	// --- Inbound SMTP server (optional) ---
+	var smtpServer *gosmtp.Server
+	if cfg.SMTPInbound.Enabled {
+		smtpBackend := smtppkg.NewBackend(
+			domainRepo,
+			inboundEmailRepo,
+			asynqClient,
+			int64(cfg.SMTPInbound.MaxMessageBytes),
+			logger,
+		)
+		smtpServer = smtppkg.NewServer(smtppkg.ServerConfig{
+			ListenAddr:      cfg.SMTPInbound.ListenAddr,
+			Domain:          cfg.SMTPInbound.Domain,
+			MaxMessageBytes: int64(cfg.SMTPInbound.MaxMessageBytes),
+			ReadTimeout:     cfg.SMTPInbound.ReadTimeout,
+			WriteTimeout:    cfg.SMTPInbound.WriteTimeout,
+		}, smtpBackend, logger)
 	}
 
 	// Run all servers concurrently using errgroup.
@@ -207,7 +346,16 @@ func runServe(configPath string) {
 		return nil
 	})
 
-	// TODO: Start inbound SMTP server if cfg.SMTPInbound.Enabled.
+	// Inbound SMTP server.
+	if smtpServer != nil {
+		g.Go(func() error {
+			logger.Info("starting inbound SMTP server", "addr", cfg.SMTPInbound.ListenAddr)
+			if err := smtpServer.ListenAndServe(); err != nil {
+				return fmt.Errorf("smtp server: %w", err)
+			}
+			return nil
+		})
+	}
 
 	// Graceful shutdown goroutine.
 	g.Go(func() error {
@@ -225,7 +373,12 @@ func runServe(configPath string) {
 		// Shutdown Asynq worker server.
 		asynqSrv.Shutdown()
 
-		// TODO: Shutdown inbound SMTP server.
+		// Shutdown inbound SMTP server.
+		if smtpServer != nil {
+			if err := smtpServer.Close(); err != nil {
+				logger.Error("smtp server shutdown", "error", err)
+			}
+		}
 
 		return nil
 	})

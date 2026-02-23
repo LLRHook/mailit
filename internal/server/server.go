@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/mailit-dev/mailit/internal/handler"
@@ -19,6 +20,7 @@ type Config struct {
 	WriteTimeout   time.Duration
 	JWTSecret      string
 	APIKeyPrefix   string
+	CORSOrigins    []string
 	RateLimitCfg   middleware.RateLimitConfig
 	Redis          *redis.Client
 	APIKeyLookup   middleware.APIKeyLookup
@@ -35,6 +37,13 @@ func New(cfg Config) *http.Server {
 	r.Use(middleware.RequestID)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Timeout(30 * time.Second))
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   cfg.CORSOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	// Health check (no auth)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {

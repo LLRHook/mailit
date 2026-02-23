@@ -36,6 +36,7 @@ type ServerConfig struct {
 	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	CORSOrigins     []string      `mapstructure:"cors_origins"`
 }
 
 // DatabaseConfig holds PostgreSQL connection settings.
@@ -199,6 +200,7 @@ func defaults() map[string]interface{} {
 		"server.read_timeout":     "30s",
 		"server.write_timeout":    "30s",
 		"server.shutdown_timeout": "10s",
+		"server.cors_origins":    []string{"http://localhost:3000"},
 
 		// Database
 		"database.host":              "localhost",
