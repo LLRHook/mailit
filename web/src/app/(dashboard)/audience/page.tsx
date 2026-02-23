@@ -290,14 +290,14 @@ function PropertiesTab() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["properties"],
-    queryFn: () => api.get("/properties").then((res) => res.data),
+    queryFn: () => api.get("/contact-properties").then((res) => res.data),
   });
 
   const properties: Property[] = data?.data ?? [];
 
   const createMutation = useMutation({
     mutationFn: (payload: { name: string; label: string; type: string }) =>
-      api.post("/properties", payload).then((res) => res.data),
+      api.post("/contact-properties", payload).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["properties"] });
       setDialogOpen(false);
