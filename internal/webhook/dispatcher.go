@@ -219,7 +219,7 @@ func (d *Dispatcher) Deliver(ctx context.Context, webhookEventID uuid.UUID) erro
 		}
 		return fmt.Errorf("HTTP request to %s failed: %w", wh.URL, httpErr)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// 7. Read the response.
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))

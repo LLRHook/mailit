@@ -1,6 +1,6 @@
 import { CopyButton } from "./copy-button";
 
-export function CodeBlock({ code, language = "bash" }: { code: string; language?: string }) {
+export function CodeBlock({ code }: { code: string }) {
   return (
     <div className="relative rounded-lg bg-zinc-900 border border-border p-4 font-mono text-sm">
       <CopyButton value={code} className="absolute top-2 right-2" />

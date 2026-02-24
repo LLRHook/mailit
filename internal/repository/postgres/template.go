@@ -233,7 +233,7 @@ func (r *templateVersionRepository) Publish(ctx context.Context, versionID uuid.
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var templateID uuid.UUID
 	err = tx.QueryRow(ctx,
