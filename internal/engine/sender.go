@@ -278,16 +278,16 @@ func (s *Sender) deliverToHost(
 
 	// Set an overall deadline for the SMTP session.
 	if err := conn.SetDeadline(time.Now().Add(s.sendTimeout)); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("setting deadline: %w", err)
 	}
 
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("creating SMTP client for %s: %w", host, err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Send EHLO.
 	if err := client.Hello(s.heloDomain); err != nil {
@@ -341,7 +341,7 @@ func (s *Sender) deliverToHost(
 	}
 
 	if len(validRecipients) == 0 {
-		client.Reset()
+		_ = client.Reset()
 		return nil // All recipients rejected; results already recorded.
 	}
 
@@ -361,7 +361,7 @@ func (s *Sender) deliverToHost(
 	}
 
 	if _, err := wc.Write(message); err != nil {
-		wc.Close()
+		_ = wc.Close()
 		return fmt.Errorf("writing message data to %s: %w", host, err)
 	}
 
@@ -387,7 +387,7 @@ func (s *Sender) deliverToHost(
 		}
 	}
 
-	client.Quit()
+	_ = client.Quit()
 	return nil
 }
 
@@ -489,8 +489,8 @@ func buildSinglePart(buf *bytes.Buffer, headers textproto.MIMEHeader, contentTyp
 	writeHeaders(buf, headers)
 
 	w := quotedprintable.NewWriter(buf)
-	w.Write([]byte(body))
-	w.Close()
+	_, _ = w.Write([]byte(body))
+	_ = w.Close()
 }
 
 // buildMultipartAlternative writes a multipart/alternative message with text
@@ -509,8 +509,8 @@ func buildMultipartAlternative(buf *bytes.Buffer, headers textproto.MIMEHeader, 
 		return fmt.Errorf("creating text part: %w", err)
 	}
 	qw := quotedprintable.NewWriter(textPart)
-	qw.Write([]byte(textBody))
-	qw.Close()
+	_, _ = qw.Write([]byte(textBody))
+	_ = qw.Close()
 
 	// HTML part.
 	htmlHeaders := textproto.MIMEHeader{}
@@ -521,8 +521,8 @@ func buildMultipartAlternative(buf *bytes.Buffer, headers textproto.MIMEHeader, 
 		return fmt.Errorf("creating HTML part: %w", err)
 	}
 	qw = quotedprintable.NewWriter(htmlPart)
-	qw.Write([]byte(htmlBody))
-	qw.Close()
+	_, _ = qw.Write([]byte(htmlBody))
+	_ = qw.Close()
 
 	return w.Close()
 }
@@ -551,7 +551,7 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 		}
 
 		nestedAlt := multipart.NewWriter(altPart)
-		nestedAlt.SetBoundary(boundary)
+		_ = nestedAlt.SetBoundary(boundary)
 
 		// Text part.
 		textHeaders := textproto.MIMEHeader{}
@@ -562,8 +562,8 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 			return fmt.Errorf("creating text part: %w", err)
 		}
 		qw := quotedprintable.NewWriter(textPart)
-		qw.Write([]byte(msg.TextBody))
-		qw.Close()
+		_, _ = qw.Write([]byte(msg.TextBody))
+		_ = qw.Close()
 
 		// HTML part.
 		htmlHeaders := textproto.MIMEHeader{}
@@ -574,8 +574,8 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 			return fmt.Errorf("creating HTML part: %w", err)
 		}
 		qw = quotedprintable.NewWriter(htmlPart)
-		qw.Write([]byte(msg.HTMLBody))
-		qw.Close()
+		_, _ = qw.Write([]byte(msg.HTMLBody))
+		_ = qw.Close()
 
 		if err := nestedAlt.Close(); err != nil {
 			return fmt.Errorf("closing alternative writer: %w", err)
@@ -589,8 +589,8 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 			return fmt.Errorf("creating HTML part: %w", err)
 		}
 		qw := quotedprintable.NewWriter(htmlPart)
-		qw.Write([]byte(msg.HTMLBody))
-		qw.Close()
+		_, _ = qw.Write([]byte(msg.HTMLBody))
+		_ = qw.Close()
 	} else if hasText {
 		textHeaders := textproto.MIMEHeader{}
 		textHeaders.Set("Content-Type", "text/plain; charset=utf-8")
@@ -600,8 +600,8 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 			return fmt.Errorf("creating text part: %w", err)
 		}
 		qw := quotedprintable.NewWriter(textPart)
-		qw.Write([]byte(msg.TextBody))
-		qw.Close()
+		_, _ = qw.Write([]byte(msg.TextBody))
+		_ = qw.Close()
 	}
 
 	// Write attachment parts.
@@ -626,7 +626,7 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 		if _, err := encoder.Write(att.Content); err != nil {
 			return fmt.Errorf("encoding attachment %s: %w", att.Filename, err)
 		}
-		encoder.Close()
+		_ = encoder.Close()
 	}
 
 	return mixedWriter.Close()

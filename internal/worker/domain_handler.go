@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
 	"github.com/mailit-dev/mailit/internal/model"
@@ -246,12 +245,4 @@ func isCriticalRecord(recordType string) bool {
 	default:
 		return false
 	}
-}
-
-// uuidToString converts a *uuid.UUID to string, returning empty for nil.
-func uuidToString(id *uuid.UUID) string {
-	if id == nil {
-		return ""
-	}
-	return id.String()
 }

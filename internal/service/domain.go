@@ -322,7 +322,7 @@ func (s *domainService) enqueueVerifyTask(domainID, teamID uuid.UUID) {
 		"team_id":   teamID.String(),
 	})
 	task := asynq.NewTask(TaskTypeDomainVerify, payload)
-	s.asynqClient.Enqueue(task, asynq.Queue("default"), asynq.MaxRetry(3))
+	_, _ = s.asynqClient.Enqueue(task, asynq.Queue("default"), asynq.MaxRetry(3))
 }
 
 // buildDomainResponse converts a domain model and its DNS records to a DTO response.

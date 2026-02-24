@@ -1,6 +1,6 @@
 module github.com/mailit-dev/mailit
 
-go 1.25.7
+go 1.25
 
 require (
 	github.com/emersion/go-msgauth v0.7.0

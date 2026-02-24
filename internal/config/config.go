@@ -303,9 +303,9 @@ func Load(path string) (*Config, error) {
 	// 3. Overlay environment variables.
 	//    MAILIT_SERVER_HTTP_ADDR -> server.http_addr
 	if err := k.Load(env.Provider("MAILIT_", ".", func(s string) string {
-		return strings.Replace(
+		return strings.ReplaceAll(
 			strings.ToLower(strings.TrimPrefix(s, "MAILIT_")),
-			"_", ".", -1,
+			"_", ".",
 		)
 	}), nil); err != nil {
 		return nil, fmt.Errorf("loading env variables: %w", err)

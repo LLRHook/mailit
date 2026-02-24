@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net"
 	"strings"
 	"time"
 
@@ -342,12 +341,4 @@ func jsonMapToStringMap(m model.JSONMap) map[string]string {
 		}
 	}
 	return result
-}
-
-// isTemporaryDNSError checks if an error is a temporary DNS error.
-func isTemporaryDNSError(err error) bool {
-	if dnsErr, ok := err.(*net.DNSError); ok {
-		return dnsErr.Temporary()
-	}
-	return false
 }

@@ -151,7 +151,7 @@ func ClassifyDSN(rawMessage []byte) (*BounceInfo, error) {
 			foundStatus = true
 		}
 
-		part.Close()
+		_ = part.Close()
 	}
 
 	if !foundStatus {

@@ -56,19 +56,19 @@ func main() {
 	case "serve":
 		serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
 		serveCmd.StringVar(&configPath, "config", "config/mailit.yaml", "config file path")
-		serveCmd.Parse(os.Args[2:])
+		_ = serveCmd.Parse(os.Args[2:])
 		runServe(configPath)
 	case "migrate":
 		migrateCmd := flag.NewFlagSet("migrate", flag.ExitOnError)
 		migrateCmd.StringVar(&configPath, "config", "config/mailit.yaml", "config file path")
 		up := migrateCmd.Bool("up", false, "run migrations up")
 		down := migrateCmd.Bool("down", false, "roll back last migration")
-		migrateCmd.Parse(os.Args[2:])
+		_ = migrateCmd.Parse(os.Args[2:])
 		runMigrate(configPath, *up, *down)
 	case "setup":
 		setupCmd := flag.NewFlagSet("setup", flag.ExitOnError)
 		setupCmd.StringVar(&configPath, "config", "config/mailit.yaml", "config file path")
-		setupCmd.Parse(os.Args[2:])
+		_ = setupCmd.Parse(os.Args[2:])
 		runSetup(configPath)
 	case "version":
 		fmt.Printf("mailit %s\n", Version)
@@ -134,7 +134,7 @@ func runServe(configPath string) {
 		DB:       cfg.Redis.DB,
 		PoolSize: cfg.Redis.PoolSize,
 	})
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		logger.Error("connecting to redis", "error", err)
@@ -173,7 +173,7 @@ func runServe(configPath string) {
 	}
 
 	asynqClient := asynq.NewClient(asynqRedisOpt)
-	defer asynqClient.Close()
+	defer func() { _ = asynqClient.Close() }()
 
 	asynqSrv := asynq.NewServer(asynqRedisOpt, asynq.Config{
 		Concurrency: cfg.Workers.Concurrency,
@@ -410,7 +410,7 @@ func runMigrate(configPath string, up, down bool) {
 		fmt.Fprintf(os.Stderr, "Error initializing migrations: %v\n", err)
 		os.Exit(1)
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	if up {
 		fmt.Println("Running migrations up...")
@@ -496,7 +496,7 @@ func runSetup(configPath string) {
 		fmt.Fprintf(os.Stderr, "Error starting transaction: %v\n", err)
 		os.Exit(1)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	userID := uuid.New()
 	teamID := uuid.New()
