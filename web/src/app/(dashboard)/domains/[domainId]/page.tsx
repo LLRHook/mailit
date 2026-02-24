@@ -177,7 +177,7 @@ export default function DomainDetailPage() {
             <CardTitle>Example DNS Configuration</CardTitle>
           </CardHeader>
           <CardContent>
-            <CodeBlock code={exampleDns} language="dns" />
+            <CodeBlock code={exampleDns} />
           </CardContent>
         </Card>
       )}
