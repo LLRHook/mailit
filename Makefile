@@ -1,4 +1,4 @@
-.PHONY: build dev test lint migrate setup-dkim docker-build clean help
+.PHONY: build dev test test-integration test-web test-all lint migrate setup-dkim docker-build clean help
 
 BINARY_NAME=mailit
 BUILD_DIR=bin
@@ -25,6 +25,14 @@ dev-docker:
 # Test
 test:
 	go test -race -cover ./...
+
+test-integration:
+	go test -race -tags integration ./internal/repository/postgres/...
+
+test-web:
+	cd web && npx vitest run
+
+test-all: test test-web
 
 test-coverage:
 	go test -race -coverprofile=coverage.out ./...
