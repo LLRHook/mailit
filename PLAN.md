@@ -1,356 +1,385 @@
-# MailIt — Implementation Plan
+# MailIt v1.0 — Road to Production
 
-## Context
+All 5 original build phases are complete. This plan covers everything needed to reach
+a fully functional, self-hostable v1.0 release.
 
-**Problem:** Resend.com charges $20-90/mo with artificial limits (1-day data retention, domain caps, team member limits, account suspensions). No self-hosting option.
-
-**Solution:** MailIt — a fully open-source, self-hosted Resend competitor. Resend-compatible API, built-in SMTP server, unlimited everything. Docker Compose one-command deploy. Optional $10 donation.
-
-**Decisions made during brainstorming:**
-- Backend: Go (single binary: API + SMTP + workers)
-- Frontend: Next.js 15 + Tailwind + shadcn/ui (dark theme)
-- SMTP: Built-in direct delivery to recipient MX servers
-- Database: PostgreSQL + Redis (job queue)
-- Deployment: Docker Compose + Kubernetes Helm chart
-- Monetization: Fully open source + optional donation
+Based on a full end-to-end test of every page and API endpoint (Feb 2026).
 
 ---
 
-## Phase 1: Foundation (Go project skeleton + database)
+## Phase 1 — Critical Bug Fixes
 
-### 1.1 Initialize Go module and directory structure
+These block the core email sending flow. Nothing else matters until these work.
 
-```
-mailit/
-├── cmd/mailit/main.go           # Entry point with serve/migrate subcommands
-├── internal/
-│   ├── config/config.go         # YAML + env config (koanf)
-│   ├── server/
-│   │   ├── server.go            # Chi router + middleware wiring
-│   │   └── middleware/
-│   │       ├── auth.go          # API key + JWT dual auth
-│   │       ├── ratelimit.go     # Per-team rate limiting
-│   │       └── requestid.go     # Request ID injection
-│   ├── handler/                 # HTTP handlers (one per resource)
-│   ├── service/                 # Business logic layer
-│   ├── repository/postgres/     # DB access (pgx)
-│   ├── repository/redis/        # Cache + idempotency
-│   ├── model/                   # Domain models (Go structs)
-│   ├── dto/                     # Request/Response DTOs
-│   ├── engine/                  # SMTP sending: sender.go, dkim.go, dns.go, bounce.go
-│   ├── smtp/                    # Inbound SMTP: server.go, backend.go
-│   ├── worker/                  # Asynq task handlers
-│   ├── webhook/                 # Webhook dispatch
-│   └── pkg/                     # Shared utilities
-├── db/migrations/               # SQL migration files (golang-migrate)
-├── config/mailit.example.yaml
-├── web/                         # Next.js dashboard
-├── deploy/
-│   ├── docker/Dockerfile
-│   └── helm/mailit/
-├── scripts/
-├── Makefile
-├── docker-compose.yml
-└── .github/workflows/
-```
+### 1.1 Fix worker queue name mismatch
+- **Bug**: `internal/service/email.go` enqueues to `asynq.Queue("email")` but the worker
+  mux in `internal/worker/server.go` only monitors queues `critical`, `default`, `low`
+- **Impact**: Emails are enqueued but **never processed**
+- **Fix**: Replace all hardcoded queue strings in services with constants from
+  `internal/worker/tasks.go` (`QueueCritical`, `QueueDefault`, `QueueLow`).
+  Route email sends to `QueueCritical`.
+- **Files**: `internal/service/email.go`, `internal/service/broadcast.go`,
+  `internal/service/domain.go`
 
-**Key Go dependencies:**
+### 1.2 Fix domain DNS records varchar overflow
+- **Bug**: `record_type VARCHAR(10)` in migration 000005 but `RETURN_PATH` is 11 chars
+- **Impact**: Domain creation crashes with 500
+- **Fix**: New migration — `ALTER COLUMN record_type TYPE VARCHAR(20)`
+- **Files**: New `db/migrations/000019_fix_dns_record_type_length.{up,down}.sql`
 
-| Purpose | Library |
-|---------|---------|
-| HTTP Router | `github.com/go-chi/chi/v5` |
-| PostgreSQL | `github.com/jackc/pgx/v5` |
-| Redis | `github.com/redis/go-redis/v9` |
-| Job Queue | `github.com/hibiken/asynq` |
-| SMTP Server | `github.com/emersion/go-smtp` |
-| DKIM | `github.com/emersion/go-msgauth` |
-| DNS | `github.com/miekg/dns` |
-| JWT | `github.com/golang-jwt/jwt/v5` |
-| Config | `github.com/knadh/koanf/v2` |
-| Migrations | `github.com/golang-migrate/migrate/v4` |
-| Validation | `github.com/go-playground/validator/v10` |
-| Logging | `log/slog` (stdlib) |
-| UUID | `github.com/google/uuid` |
+### 1.3 Fix suppression list "not found" handling
+- **Bug**: `internal/service/email.go` treats ALL suppression lookup errors as failures.
+  `ErrNotFound` should mean "not suppressed, proceed".
+- **Impact**: Email sending returns 500 for every recipient
+- **Fix**: Check for `ErrNotFound` and treat as "not suppressed". Only error on real DB failures.
+- **Files**: `internal/service/email.go`
 
-### 1.2 Database schema (18 migrations)
+### 1.4 Add batch email send handler
+- **Bug**: `TaskEmailBatchSend` is defined in `internal/worker/tasks.go` but **no handler
+  is registered** in `NewMux()`
+- **Impact**: `POST /emails/batch` enqueues a task that is silently dropped
+- **Fix**: Implement `BatchEmailSendHandler` that expands the batch into individual
+  `TaskEmailSend` tasks
+- **Files**: New `internal/worker/batch_email_handler.go`, update `internal/worker/server.go`
 
-Tables in order:
-1. `users` — id, email, password (bcrypt), name
-2. `teams` + `team_members` — team_id, user_id, role (owner/admin/member)
-3. `api_keys` — key_hash (SHA-256), key_prefix, permission (full/sending), domain scope
-4. `domains` — name, status, region, dkim_private_key (encrypted), dkim_selector, open/click tracking, tls_policy
-5. `domain_dns_records` — record_type (SPF/DKIM/MX/DMARC), dns_type, name, value, status
-6. `emails` — from, to[], cc[], bcc[], subject, html/text body, status (queued→sending→sent→delivered→bounced→failed), scheduled_at, tags, headers, attachments, idempotency_key
-7. `email_events` — type (sent/delivered/bounced/opened/clicked/complained), payload
-8. `audiences` — name per team
-9. `contacts` — email, first_name, last_name, unsubscribed, per audience
-10. `contact_properties` + `contact_property_values` — custom properties
-11. `topics` + `contact_topics` — subscription preferences
-12. `segments` + `segment_contacts` — audience segmentation
-13. `templates` + `template_versions` — versioned templates with variables
-14. `broadcasts` — campaign status (draft→queued→sending→sent), audience targeting
-15. `webhooks` + `webhook_events` — URL, events[], signing secret, delivery tracking
-16. `suppression_list` — email, reason (bounce/complaint/unsubscribe/manual)
-17. `logs` — API request logs (level, message, metadata)
-18. `inbound_emails` — received emails with raw message storage
+### 1.5 Fix CORS defaults
+- **Bug**: Default `cors_origins` is `["http://localhost:3000"]`. Any other frontend port
+  (or production domain) fails silently with no error.
+- **Fix**: Add `cors_origins` to `config/mailit.example.yaml` with clear documentation.
+  Default should include both `:3000` and `:3001` for dev.
+- **Files**: `internal/config/config.go`, `config/mailit.example.yaml`
 
-### 1.3 Config file structure (`config/mailit.example.yaml`)
-
-Sections: server, database, redis, auth (jwt_secret, api_key_prefix "re_"), smtp_outbound (hostname, tls_policy), smtp_inbound (listen_addr, max_message_bytes), dkim (selector, key_bits, master_encryption_key), workers (concurrency, queues, retry delays), rate_limit, webhooks, dns, logging, storage (local/s3), suppression.
-
-### 1.4 Application entry point (`cmd/mailit/main.go`)
-
-Subcommands:
-- `mailit serve` — loads config, connects DB + Redis, runs migrations, starts HTTP server + Asynq workers + SMTP servers concurrently via errgroup
-- `mailit migrate --up/--down` — standalone migration runner
-- `mailit setup` — first-run admin account creation + DKIM key generation
-
-**Verification:** `go build ./cmd/mailit` compiles. `mailit migrate --up` creates all tables. `mailit serve` starts and responds to `GET /healthz`.
+### 1.6 Fix API key permission values in frontend
+- **Bug**: Frontend sends `"full_access"` / `"sending_access"`, backend validates
+  `oneof=full sending`
+- **Fix**: Change SelectItem values to `"full"` and `"sending"`
+- **Files**: `web/src/app/(dashboard)/api-keys/page.tsx`
 
 ---
 
-## Phase 2: API Core (REST endpoints + auth)
+## Phase 2 — Frontend Foundations
 
-### 2.1 Auth middleware (`internal/server/middleware/auth.go`)
+Fix the dashboard so every page works end-to-end with the backend.
 
-Dual auth: API key (prefix "re_", SHA-256 hash lookup) and JWT (for dashboard). Injects team_id + permission into request context.
+### 2.1 Root page redirect
+- Replace `web/src/app/page.tsx` (still the default Next.js starter) with a redirect
+  to `/login`
+- **Files**: `web/src/app/page.tsx`
 
-### 2.2 REST API endpoints (Resend-compatible)
+### 2.2 Add logout
+- Add a logout button to the sidebar (bottom, near the version string)
+- On click: clear `localStorage` token, clear `mailit_token` cookie, redirect to `/login`
+- **Files**: `web/src/components/layout/app-sidebar.tsx`
 
-```
-POST   /emails                    POST   /emails/batch
-GET    /emails                    GET    /emails/{id}
-PATCH  /emails/{id}               POST   /emails/{id}/cancel
+### 2.3 Fix token storage consistency
+- **Problem**: Login sets both `localStorage` and cookie. API client reads `localStorage`.
+  Middleware reads cookie. 401 interceptor clears `localStorage` but not cookie.
+- **Fix**: Keep dual storage but ensure both are always set AND cleared together.
+  Fix the 401 interceptor to clear both. Add `HttpOnly` in a future iteration.
+- **Files**: `web/src/lib/api.ts`, `web/src/app/(auth)/login/page.tsx`,
+  `web/src/app/(auth)/register/page.tsx`
 
-POST   /domains                   GET    /domains
-GET    /domains/{id}              PATCH  /domains/{id}
-DELETE /domains/{id}              POST   /domains/{id}/verify
+### 2.4 Add error toasts to all mutations
+- **Problem**: No mutation anywhere has an `onError` callback. The Toaster (sonner)
+  is mounted in `layout.tsx` but never used.
+- **Fix**: Add `onError` with `toast.error()` and `onSuccess` with `toast.success()`
+  to every `useMutation` across all pages.
+- **Pages**: `domains/page.tsx`, `api-keys/page.tsx`, `audience/page.tsx`,
+  `broadcasts/new/page.tsx`, `templates/new/page.tsx`, `templates/[id]/page.tsx`,
+  `webhooks/new/page.tsx`
 
-POST   /api-keys                  GET    /api-keys
-DELETE /api-keys/{id}
+### 2.5 Fix template edit form state
+- **Bug**: Form state initializes as `null`, setter functions crash with `...f!`
+  when `f` is null
+- **Fix**: Initialize form from fetched template data via `useEffect` after query loads
+- **Files**: `web/src/app/(dashboard)/templates/[id]/page.tsx`
 
-POST   /audiences                 GET    /audiences
-GET    /audiences/{id}            DELETE /audiences/{id}
-
-POST   /audiences/{id}/contacts   GET    /audiences/{id}/contacts
-GET    /audiences/{aid}/contacts/{cid}
-PATCH  /audiences/{aid}/contacts/{cid}
-DELETE /audiences/{aid}/contacts/{cid}
-
-POST   /contact-properties        GET    /contact-properties
-PATCH  /contact-properties/{id}   DELETE /contact-properties/{id}
-
-POST   /topics       GET /topics
-PATCH  /topics/{id}  DELETE /topics/{id}
-
-POST   /audiences/{id}/segments   GET    /audiences/{id}/segments
-PATCH  /audiences/{aid}/segments/{sid}
-DELETE /audiences/{aid}/segments/{sid}
-
-POST   /templates                 GET    /templates
-GET    /templates/{id}            PATCH  /templates/{id}
-DELETE /templates/{id}            POST   /templates/{id}/publish
-
-POST   /broadcasts               GET    /broadcasts
-GET    /broadcasts/{id}           PATCH  /broadcasts/{id}
-DELETE /broadcasts/{id}           POST   /broadcasts/{id}/send
-
-POST   /webhooks                  GET    /webhooks
-GET    /webhooks/{id}             PATCH  /webhooks/{id}
-DELETE /webhooks/{id}
-
-GET    /inbound/emails            GET    /inbound/emails/{id}
-```
-
-Rate limiting: 10 req/s default, 2 req/s for send, 1 req/s for batch. Redis-backed counters. Returns `X-RateLimit-*` headers.
-
-**Verification:** curl `POST /emails` with API key returns email ID. `GET /emails` returns paginated list.
+### 2.6 Add missing delete operations to UI
+- Add delete buttons with confirmation dialogs to: Domains, Broadcasts, Webhooks
+- Backend already supports `DELETE` for all of these — just needs frontend UI
+- **Files**: `domains/page.tsx`, `broadcasts/page.tsx`, `webhooks/page.tsx`
 
 ---
 
-## Phase 3: Email Engine (SMTP sending + DKIM)
+## Phase 3 — Metrics & Analytics
 
-### 3.1 DKIM signing (`internal/engine/dkim.go`)
+Build the metrics backend and wire the frontend.
 
-Auto-generate 2048-bit RSA key pair per domain. Sign with `go-msgauth`. Store private key AES-256-GCM encrypted. Generate DNS TXT record for public key.
+### 3.1 Create metrics aggregation table
+```sql
+CREATE TABLE email_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id UUID NOT NULL REFERENCES teams(id),
+    period_start TIMESTAMPTZ NOT NULL,
+    period_type VARCHAR(10) NOT NULL CHECK (period_type IN ('hourly', 'daily')),
+    sent INT DEFAULT 0,
+    delivered INT DEFAULT 0,
+    bounced INT DEFAULT 0,
+    failed INT DEFAULT 0,
+    opened INT DEFAULT 0,
+    clicked INT DEFAULT 0,
+    complained INT DEFAULT 0,
+    UNIQUE (team_id, period_start, period_type)
+);
+CREATE INDEX idx_email_metrics_team_period ON email_metrics(team_id, period_type, period_start);
+```
+- **Files**: New migration pair (next available number after Phase 1 migrations)
 
-### 3.2 SMTP sender (`internal/engine/sender.go`)
+### 3.2 Metrics worker
+- New asynq periodic task (`TaskMetricsAggregate`) that runs hourly
+- Queries `email_events` table grouped by hour/day and upserts into `email_metrics`
+- Also increment counters in real-time from `EmailSendHandler` on delivery/bounce events
+- **Files**: New `internal/worker/metrics_handler.go`, update `internal/worker/tasks.go`,
+  `internal/worker/server.go`
 
-1. Build RFC 5322 MIME message (headers, multipart body, attachments)
-2. DKIM sign the message
-3. Resolve recipient MX records via `miekg/dns`
-4. Connect to MX host on port 25, EHLO, STARTTLS (opportunistic), MAIL FROM, RCPT TO, DATA
-5. Try MX hosts in priority order; classify errors as permanent (5xx) vs temporary (4xx)
+### 3.3 Metrics API endpoint
+- `GET /metrics?period=7d|30d|24h` — returns time-series + aggregate totals for the team
+- Response: stat card values (total sent, delivery rate, open rate, bounce rate) +
+  chart data (per-day or per-hour breakdown)
+- **Files**: New `internal/handler/metrics.go`, new `internal/service/metrics.go`,
+  new `internal/repository/postgres/metrics.go`, update `internal/server/server.go`
 
-### 3.3 Job queue workers (`internal/worker/`)
-
-Asynq task types: `email:send`, `email:send_batch`, `broadcast:send`, `domain:verify`, `webhook:deliver`, `bounce:process`, `inbound:process`, `cleanup:expired`
-
-Queue priorities: critical (6), default (3), low (1). Concurrency: 20 goroutines.
-
-Retry: exponential backoff [10s, 30s, 1m, 5m, 15m, 30m, 1h, 2h], max 8 retries. Permanent failures (5xx) are not retried.
-
-### 3.4 Bounce handling (`internal/engine/bounce.go`)
-
-Classify bounces: hard (5xx → suppress + don't retry), soft (4xx → retry), spam (complaint → suppress). Auto-add hard bounces to suppression list.
-
-### 3.5 Inbound SMTP server (`internal/smtp/`)
-
-`go-smtp` server on port 25. Validates recipient domain is registered. Reads message up to 25MB. Enqueues for async processing (parse MIME, store, dispatch webhooks).
-
-### 3.6 Webhook dispatch (`internal/webhook/dispatcher.go`)
-
-HTTP POST to registered endpoints. HMAC-SHA256 signing. Retry with backoff [30s, 2m, 10m, 30m, 2h], max 5 attempts.
-
-**Verification:** Send email via API → appears in recipient inbox with valid DKIM signature. `dig` confirms SPF/DKIM/DMARC pass.
+### 3.4 Wire frontend metrics page
+- Replace empty data arrays with `useQuery` fetching from `GET /metrics`
+- Populate stat cards with real totals, charts with time-series data
+- Show empty state when no data, charts when data exists
+- **Files**: `web/src/app/(dashboard)/metrics/page.tsx`
 
 ---
 
-## Phase 4: Dashboard (Next.js)
+## Phase 4 — Settings & Team Management
 
-### 4.1 Initialize project
+### 4.1 Settings API endpoints
+- `GET /settings/usage` — counts (emails today/month, domains, API keys, webhooks, contacts)
+- `GET /settings/team` — team info + members list with roles
+- `PATCH /settings/team` — update team name
+- `GET /settings/smtp` — SMTP config for the team (hostname, ports, auth display)
+- **Files**: New `internal/handler/settings.go`, new `internal/service/settings.go`,
+  update `internal/server/server.go`
 
-```bash
-cd web/
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir
-npx shadcn@latest init  # dark default, neutral base
-npx shadcn@latest add button badge card dialog dropdown-menu input label \
-  select separator sheet sidebar skeleton table tabs textarea tooltip avatar \
-  collapsible command popover calendar chart form sonner pagination \
-  scroll-area toggle-group switch checkbox radio-group alert
-npm install @tanstack/react-table @tanstack/react-query next-themes \
-  lucide-react recharts date-fns axios zustand
-```
+### 4.2 Team invitations & roles
+- New `team_invitations` table: id, team_id, email, role, token, expires_at, accepted_at
+- `POST /settings/team/invite` — send invitation email
+- `POST /auth/accept-invite?token=...` — accept invitation, create account, join team
+- Roles: `owner` (full control), `admin` (manage keys/domains), `member` (read + send)
+- Role-based checks in auth middleware for destructive operations
+- **Files**: New migration, new `internal/handler/team.go`, new `internal/service/team.go`,
+  new `internal/repository/postgres/team_invitation.go`
 
-### 4.2 Design system
-
-- Background: `#0a0a0a`, card: `#0e0e0e`, border: `#242424`
-- Accent color: teal/cyan (hue 173) — differentiates from Resend's blue
-- Fonts: Inter (UI), JetBrains Mono (code/keys)
-- Status badges: green (delivered/verified/2xx), red (failed/bounced/4xx-5xx), yellow (pending/queued)
-
-### 4.3 Route structure
-
-```
-(auth)/login, /register, /forgot-password  — centered card layout, no sidebar
-(dashboard)/                               — sidebar layout
-  emails/           emails/[emailId]
-  broadcasts/       broadcasts/new        broadcasts/[id]
-  templates/        templates/new         templates/[id]
-  audience/         (tabs: Contacts, Properties, Segments, Topics)
-  metrics/
-  domains/          domains/[domainId]
-  logs/
-  api-keys/
-  webhooks/         webhooks/new
-  settings/         (tabs: Usage, Billing, Team, SMTP, Integrations, Unsubscribe, Documents)
-```
-
-### 4.4 Key shared components
-
-- **DataTable** — generic TanStack Table with sort/filter/paginate (used by 8+ pages)
-- **StatusBadge** — maps status → colored badge
-- **ApiDrawer** — `</>` button opening Sheet with curl examples per page
-- **PageHeader** — title + description + action button + API drawer
-- **EmptyState** — "No data yet" with icon + CTA
-- **CopyButton**, **CodeBlock**, **StatCard**, **DateRangePicker**
-
-### 4.5 API client + auth
-
-- Axios instance with JWT cookie interceptors
-- TanStack Query for server state (caching, mutations)
-- Zustand for UI state (sidebar collapse)
-- Next.js middleware for route protection (redirect unauthenticated → /login)
-
-### 4.6 Sidebar
-
-Navigation: Emails, Broadcasts, Templates, Audience, Metrics, Domains, Logs, API Keys, Webhooks, Settings. Team switcher at top, user avatar at bottom.
-
-**Verification:** Login → see emails list → click email → see detail with preview/HTML/events. All pages render with data from Go API.
+### 4.3 Wire frontend settings
+- **Usage tab**: Fetch from `GET /settings/usage` (currently hardcoded zeros are fine
+  since it's computing from real data)
+- **Team tab**: Fetch members from `GET /settings/team`. Wire "Invite Member" dialog
+  to `POST /settings/team/invite`. Show role badges. Allow owner to remove members.
+- **SMTP tab**: Fetch from `GET /settings/smtp` instead of hardcoded values
+- **Integrations tab**: Remove for v1.0 (or keep "Coming soon" placeholder)
+- **Files**: `web/src/app/(dashboard)/settings/page.tsx`
 
 ---
 
-## Phase 5: Deployment Infrastructure
+## Phase 5 — Email Delivery Features
 
-### 5.1 Dockerfiles
+### 5.1 Unsubscribe support
+- Generate unique unsubscribe tokens per contact per audience
+- Add `List-Unsubscribe` and `List-Unsubscribe-Post` headers to all outbound emails
+  (RFC 8058 one-click unsubscribe)
+- New public endpoint: `POST /unsubscribe?token=...` (no auth required)
+- On unsubscribe: mark contact as unsubscribed, create `unsubscribed` event,
+  dispatch webhook
+- **Files**: New `internal/handler/unsubscribe.go`, update `internal/engine/sender.go`,
+  new migration for unsubscribe tokens table
 
-- **Go** (`deploy/docker/Dockerfile`): multi-stage (golang:1.23-alpine builder → alpine:3.20 runtime). CGO_ENABLED=0 static binary. Non-root user. Migrations bundled at `/migrations`. Healthcheck on `/healthz`.
-- **Next.js** (`web/Dockerfile`): 3-stage (deps → builder → runner with standalone output). Non-root user. Healthcheck.
+### 5.2 Open tracking
+- When `domain.open_tracking` is enabled, inject a 1x1 transparent tracking pixel
+  at the bottom of HTML email bodies
+- Pixel URL: `GET /track/open/{tracking_id}` (public, no auth)
+- On load: create `opened` event, increment metrics counter, dispatch webhook
+- Return a transparent 1x1 GIF
+- **Files**: New `internal/handler/tracking.go`, update `internal/engine/sender.go`
+  (pixel injection), update `internal/server/server.go` (public route)
 
-### 5.2 Docker Compose (`docker-compose.yml`)
+### 5.3 Click tracking
+- When `domain.click_tracking` is enabled, rewrite all `<a href="...">` links
+  in HTML email bodies
+- Rewritten URL: `GET /track/click/{tracking_id}?url={encoded_original_url}`
+- On click: create `clicked` event, increment metrics, dispatch webhook,
+  302 redirect to original URL
+- **Files**: Update `internal/handler/tracking.go`, update `internal/engine/sender.go`
+  (link rewriting logic)
 
-4 services:
-- `mailit-api` (Go) — ports 8080, 25, 587. Depends on postgres + redis (healthy).
-- `mailit-web` (Next.js) — port 3000. Depends on mailit-api (healthy).
-- `postgres:16-alpine` — persistent volume, health check via pg_isready.
-- `redis:7-alpine` — appendonly, persistent volume, health check via redis-cli ping.
-
-Required env vars: `POSTGRES_PASSWORD`, `MAILIT_DOMAIN`, `NEXTAUTH_SECRET`.
-
-### 5.3 Kubernetes Helm chart (`deploy/helm/mailit/`)
-
-- API Deployment (2 replicas, init container for migrations, liveness/readiness probes)
-- Web Deployment (2 replicas)
-- PostgreSQL StatefulSet with PVC (10Gi default)
-- Redis StatefulSet with PVC (2Gi default)
-- Ingress (nginx, cert-manager TLS)
-- LoadBalancer Services for SMTP inbound (25) + outbound (587)
-- HPA for API + Web
-- Secrets (auto-generated postgres password + nextauth secret)
-- Supports external postgres/redis via values.yaml
-
-### 5.4 Development environment
-
-- `docker-compose.dev.yml` with Go hot reload (air) + Next.js dev server
-- Source code volume mounts, exposed DB/Redis ports for local tooling
-- Makefile with targets: dev, build, test, lint, migrate, setup-dkim, docker-build
-
-### 5.5 CI/CD (GitHub Actions)
-
-- **CI** (`ci.yml`): Go test + lint, Next.js test + lint + build, Helm lint. Runs on push/PR to main.
-- **Release** (`release.yml`): On tag push, builds multi-arch images (amd64 + arm64), pushes to GHCR, packages Helm chart, uploads to GitHub Release.
-
-### 5.6 First-run setup flow
-
-1. `git clone` + `cp .env.example .env` + edit
-2. `make setup-dkim` — generates DKIM keys, prints DNS records
-3. `docker compose up -d` — starts everything, runs migrations, creates admin account (password printed to logs)
-4. Open dashboard → DNS wizard shows required records → verify button checks DNS
-
-**Verification:** `docker compose up -d` starts all 4 containers healthy. `curl localhost:8080/healthz` returns 200. Dashboard loads at localhost:3000.
+### 5.4 Fix template-based broadcasts
+- **Bug**: `internal/worker/broadcast_handler.go` builds emails from inline broadcast
+  fields (FromAddress, Subject, HTMLBody, TextBody), completely ignoring `TemplateID`
+- **Fix**: When broadcast has a `TemplateID`, fetch the published template version
+  and use its subject/HTML/text body. Support variable substitution
+  (e.g., `{{contact.first_name}}`, `{{contact.email}}`)
+- **Files**: `internal/worker/broadcast_handler.go`
 
 ---
 
-## Build Order (Phase Dependencies)
+## Phase 6 — Contact Management
+
+### 6.1 Bulk contact import (CSV)
+- New endpoint: `POST /audiences/{audienceId}/contacts/import` (multipart form upload)
+- Accept CSV with columns: email (required), first_name, last_name, + custom properties
+- Process in background via asynq task (large files can have 100k+ rows)
+- Return import job ID, allow polling status via `GET /audiences/{id}/contacts/import/{jobId}`
+- Handle duplicates: skip existing or update on match
+- **Files**: New `internal/handler/contact_import.go`,
+  new `internal/worker/import_handler.go`, new `internal/service/contact_import.go`
+
+### 6.2 Contact export
+- `GET /audiences/{audienceId}/contacts/export?format=csv`
+- Stream CSV download with all contacts + property values
+- **Files**: Update `internal/handler/contact.go`
+
+### 6.3 Segment-based broadcast targeting
+- **Gap**: Broadcasts reference an audience but ignore segments entirely
+- **Fix**: Add optional `SegmentID` to broadcast model + DTO. When set, only
+  expand contacts matching the segment filter during broadcast send.
+- **Files**: Update `internal/worker/broadcast_handler.go`,
+  update `internal/dto/broadcast.go`, update `internal/model/broadcast.go`
+
+### 6.4 Frontend: import/export UI
+- Add "Import CSV" button on Audience page → file upload dialog with column mapping
+- Add "Export" button → triggers CSV download
+- Progress indicator for large imports
+- **Files**: Update `web/src/app/(dashboard)/audience/page.tsx`
+
+---
+
+## Phase 7 — Inbound SMTP
+
+### 7.1 Attachment parsing
+- **Gap**: `internal/smtp/backend.go` always returns empty attachments array
+- **Fix**: Parse MIME multipart body, extract attachments (filename, content-type, size)
+- Store attachment content based on `storage.type` config (local filesystem or S3)
+- Link attachments to inbound email record
+- **Files**: `internal/smtp/backend.go`, new `internal/service/attachment.go`
+
+### 7.2 Inbound email webhook forwarding
+- When an inbound email is received and stored, dispatch a webhook event (`email.inbound`)
+- Payload: from, to, subject, text body, HTML body, attachment metadata (names, sizes, URLs)
+- **Files**: Update `internal/worker/inbound_handler.go`,
+  update `internal/webhook/dispatcher.go` (add `email.inbound` event type)
+
+---
+
+## Phase 8 — Polish & Hardening
+
+### 8.1 Error handling consistency
+- Standardize repository error wrapping across all postgres repos
+- Ensure all services return typed errors that handlers map to correct HTTP status codes
+- **Files**: All `internal/repository/postgres/*.go`, all `internal/service/*.go`
+
+### 8.2 Missing database indexes
+- Add compound index on `domain_dns_records(domain_id, record_type)`
+- Add index on `email_events(recipient)`
+- Review slow-query patterns and add indexes as needed
+- **Files**: New migration
+
+### 8.3 API documentation
+- OpenAPI/Swagger spec for all endpoints
+- Serve interactive docs at `GET /docs`
+- **Files**: New `api/openapi.yaml` or code-generated spec
+
+### 8.4 Rate limiting on sensitive endpoints
+- Stricter limits on: `POST /auth/register` (5/min), `POST /auth/login` (10/min),
+  `POST /api-keys` (10/min)
+- Prevent brute-force and enumeration
+- **Files**: Update `internal/server/server.go`
+
+### 8.5 Frontend accessibility & UX
+- Add `autocomplete` attributes to auth forms
+- Add loading skeletons during data fetch (replace blank states during loading)
+- Dynamic page titles (browser tab shows current section, e.g., "Domains — MailIt")
+- **Files**: Various frontend components
+
+### 8.6 Integration tests
+- Testcontainers-based tests: register → create domain → create API key → send email
+  → verify delivery event → check metrics
+- SMTP backend tests for inbound email parsing + attachment extraction
+- **Files**: New `internal/integration_test/` directory
+
+---
+
+## Phase Dependency Map
 
 ```
-Phase 1 (Foundation) ──→ Phase 2 (API) ──→ Phase 3 (Engine) ──→ Phase 5 (Deploy)
-                                                    ↕
-                                             Phase 4 (Dashboard)
+Phase 1 (Bug Fixes) ──→ Phase 2 (Frontend) ──→ Phase 4 (Teams)
+       │                                              │
+       ├──→ Phase 3 (Metrics) ────────────────────────┤
+       │                                              │
+       ├──→ Phase 5 (Delivery Features) ──→ Phase 6 (Contacts)
+       │                                              │
+       ├──→ Phase 7 (Inbound SMTP) ───────────────────┤
+       │                                              │
+       └──────────────────────────────────────→ Phase 8 (Polish)
 ```
 
-- Phases 3 and 4 can be worked on in parallel after Phase 2.
-- Phase 5 can start as soon as Phase 1 is done (Dockerfiles), but Helm chart needs Phase 2-3.
+Phases 3, 5, 7 can run in parallel after Phase 1. Phase 4 depends on Phase 2.
+Phase 6 depends on Phases 1 + 5. Phase 8 is ongoing but formalized last.
 
-## Files to Create (in order)
+---
 
-1. `go.mod`, `Makefile`, `.env.example`, `config/mailit.example.yaml`
-2. `cmd/mailit/main.go` — entry point
-3. `internal/config/config.go` — config loader
-4. `db/migrations/000001_*.sql` through `000018_*.sql`
-5. `internal/model/*.go` — all domain models
-6. `internal/repository/postgres/*.go` — DB layer
-7. `internal/server/middleware/auth.go` — auth middleware
-8. `internal/server/server.go` — router setup
-9. `internal/handler/*.go` — all HTTP handlers
-10. `internal/service/*.go` — business logic
-11. `internal/engine/*.go` — SMTP sender, DKIM, DNS, bounce
-12. `internal/smtp/*.go` — inbound SMTP server
-13. `internal/worker/*.go` — job handlers
-14. `internal/webhook/dispatcher.go` — webhook delivery
-15. `web/` — full Next.js dashboard
-16. `deploy/docker/Dockerfile`, `web/Dockerfile`
-17. `docker-compose.yml`, `docker-compose.dev.yml`
-18. `deploy/helm/mailit/` — full Helm chart
-19. `.github/workflows/ci.yml`, `.github/workflows/release.yml`
-20. `scripts/generate-dkim.sh`, `scripts/setup.sh`
+## Bugs Found During Testing (Reference)
+
+| # | Severity | Description | Phase |
+|---|----------|-------------|-------|
+| 1 | CRITICAL | Worker queue name mismatch — emails never processed | 1.1 |
+| 2 | CRITICAL | `varchar(10)` overflow on `RETURN_PATH` in DNS records | 1.2 |
+| 3 | CRITICAL | Suppression "not found" treated as error — all sends fail | 1.3 |
+| 4 | CRITICAL | `TaskEmailBatchSend` has no handler — batch silently dropped | 1.4 |
+| 5 | CRITICAL | CORS not configured by default — frontend can't reach API | 1.5 |
+| 6 | MEDIUM | Frontend sends `full_access`, backend expects `full` | 1.6 |
+| 7 | MEDIUM | Template edit form crashes (null state) | 2.5 |
+| 8 | MEDIUM | No error toasts on any mutation — failures are silent | 2.4 |
+| 9 | MEDIUM | No logout button anywhere in the dashboard | 2.2 |
+| 10 | MEDIUM | Token storage inconsistency (localStorage vs cookie) | 2.3 |
+| 11 | MEDIUM | Settings page: dead invite button, hardcoded SMTP | 4.3 |
+| 12 | MEDIUM | Broadcast handler ignores TemplateID | 5.4 |
+| 13 | LOW | Root page shows Next.js default starter | 2.1 |
+| 14 | LOW | No delete UI for domains, broadcasts, webhooks | 2.6 |
+| 15 | LOW | Metrics page was hardcoded dummy data (now zeroed) | 3.4 |
+| 16 | LOW | Missing DB indexes on dns_records and email_events | 8.2 |
+
+## Missing Features (Reference)
+
+| # | Feature | Phase |
+|---|---------|-------|
+| 1 | Metrics aggregation backend | 3 |
+| 2 | Multi-user team management + invites | 4 |
+| 3 | List-Unsubscribe headers (RFC 8058) | 5.1 |
+| 4 | Open tracking (pixel injection) | 5.2 |
+| 5 | Click tracking (link rewriting) | 5.3 |
+| 6 | Template variable substitution in broadcasts | 5.4 |
+| 7 | CSV contact import/export | 6.1, 6.2 |
+| 8 | Segment-based broadcast targeting | 6.3 |
+| 9 | Inbound SMTP attachment parsing | 7.1 |
+| 10 | Inbound email webhook events | 7.2 |
+| 11 | OpenAPI documentation | 8.3 |
+| 12 | Integration tests | 8.6 |
+
+---
+
+## Definition of Done (v1.0)
+
+A user can:
+
+1. Register an account and log in (and log out)
+2. Add a sending domain and verify DNS records (SPF, DKIM, MX, DMARC)
+3. Create API keys with scoped permissions
+4. Send transactional emails via REST API with DKIM signing
+5. Send batch emails via REST API
+6. Create and manage versioned email templates
+7. Import contacts via CSV and organize into audiences
+8. Create broadcasts targeting audiences or segments with template support
+9. View real delivery metrics (sent, delivered, bounced, opened, clicked)
+10. Receive webhook notifications for all email events
+11. Manage unsubscribes with RFC 8058 one-click support
+12. Receive inbound emails with attachment parsing
+13. Invite team members with role-based access
+14. Self-host the entire stack via Docker Compose or Helm
+15. Read API documentation at `/docs`
+
+All of the above work through both the REST API and the dashboard UI.

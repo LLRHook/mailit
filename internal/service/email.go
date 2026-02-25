@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,12 +15,10 @@ import (
 	"github.com/mailit-dev/mailit/internal/model"
 	"github.com/mailit-dev/mailit/internal/pkg"
 	"github.com/mailit-dev/mailit/internal/repository/postgres"
+	"github.com/mailit-dev/mailit/internal/worker"
 )
 
 const (
-	// TaskTypeSendEmail is the asynq task type for sending a single email.
-	TaskTypeSendEmail = "email:send"
-
 	// idempotencyKeyPrefix is the Redis key prefix for idempotency keys.
 	idempotencyKeyPrefix = "idempotency:"
 
@@ -77,7 +76,7 @@ func (s *emailService) Send(ctx context.Context, teamID uuid.UUID, req *dto.Send
 	// Check suppression list for each recipient.
 	for _, addr := range req.To {
 		entry, err := s.suppressionRepo.GetByTeamAndEmail(ctx, teamID, addr)
-		if err != nil && err != postgres.ErrNotFound {
+		if err != nil && !errors.Is(err, postgres.ErrNotFound) {
 			return nil, fmt.Errorf("checking suppression list: %w", err)
 		}
 		if entry != nil {
@@ -162,9 +161,9 @@ func (s *emailService) Send(ctx context.Context, teamID uuid.UUID, req *dto.Send
 		return nil, fmt.Errorf("marshalling task payload: %w", err)
 	}
 
-	task := asynq.NewTask(TaskTypeSendEmail, payload)
+	task := asynq.NewTask(worker.TaskEmailSend, payload)
 	opts := []asynq.Option{
-		asynq.Queue("email"),
+		asynq.Queue(worker.QueueCritical),
 		asynq.MaxRetry(3),
 	}
 	if scheduledAt != nil {

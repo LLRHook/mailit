@@ -200,7 +200,7 @@ func defaults() map[string]interface{} {
 		"server.read_timeout":     "30s",
 		"server.write_timeout":    "30s",
 		"server.shutdown_timeout": "10s",
-		"server.cors_origins":    []string{"http://localhost:3000"},
+		"server.cors_origins":    []string{"http://localhost:3000", "http://localhost:3001"},
 
 		// Database
 		"database.host":              "localhost",

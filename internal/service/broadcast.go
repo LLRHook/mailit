@@ -13,12 +13,9 @@ import (
 	"github.com/mailit-dev/mailit/internal/model"
 	"github.com/mailit-dev/mailit/internal/pkg"
 	"github.com/mailit-dev/mailit/internal/repository/postgres"
+	"github.com/mailit-dev/mailit/internal/worker"
 )
 
-const (
-	// TaskTypeBroadcastSend is the asynq task type for sending a broadcast.
-	TaskTypeBroadcastSend = "broadcast:send"
-)
 
 // BroadcastService defines operations for managing and sending broadcasts.
 type BroadcastService interface {
@@ -262,8 +259,8 @@ func (s *broadcastService) Send(ctx context.Context, teamID uuid.UUID, broadcast
 		return nil, fmt.Errorf("marshalling task payload: %w", err)
 	}
 
-	task := asynq.NewTask(TaskTypeBroadcastSend, payload)
-	if _, err := s.asynqClient.Enqueue(task, asynq.Queue("broadcast"), asynq.MaxRetry(3)); err != nil {
+	task := asynq.NewTask(worker.TaskBroadcastSend, payload)
+	if _, err := s.asynqClient.Enqueue(task, asynq.Queue(worker.QueueCritical), asynq.MaxRetry(3)); err != nil {
 		return nil, fmt.Errorf("enqueueing broadcast send task: %w", err)
 	}
 

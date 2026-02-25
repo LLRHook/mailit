@@ -297,6 +297,7 @@ func runServe(configPath string) {
 	// --- Worker Mux ---
 	workerHandlers := worker.Handlers{
 		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, emailSenderAdapter, webhookDispatchFn, logger),
+		EmailBatchSend: worker.NewBatchEmailSendHandler(asynqClient, logger),
 		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, asynqClient, logger),
 		DomainVerify:   worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
 		Bounce:         worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),

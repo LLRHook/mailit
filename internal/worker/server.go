@@ -32,6 +32,7 @@ func DefaultConfig() Config {
 // Handlers holds all task handler instances that will be registered with the mux.
 type Handlers struct {
 	EmailSend      *EmailSendHandler
+	EmailBatchSend *BatchEmailSendHandler
 	BroadcastSend  *BroadcastSendHandler
 	DomainVerify   *DomainVerifyHandler
 	Bounce         *BounceHandler
@@ -78,6 +79,9 @@ func NewMux(h Handlers) *asynq.ServeMux {
 
 	if h.EmailSend != nil {
 		mux.HandleFunc(TaskEmailSend, h.EmailSend.ProcessTask)
+	}
+	if h.EmailBatchSend != nil {
+		mux.HandleFunc(TaskEmailBatchSend, h.EmailBatchSend.ProcessTask)
 	}
 	if h.BroadcastSend != nil {
 		mux.HandleFunc(TaskBroadcastSend, h.BroadcastSend.ProcessTask)

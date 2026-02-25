@@ -27,7 +27,7 @@ func TestLoad_Defaults(t *testing.T) {
 
 	// Server defaults.
 	assert.Equal(t, ":8080", cfg.Server.HTTPAddr)
-	assert.Equal(t, []string{"http://localhost:3000"}, cfg.Server.CORSOrigins)
+	assert.Equal(t, []string{"http://localhost:3000", "http://localhost:3001"}, cfg.Server.CORSOrigins)
 
 	// Database defaults.
 	assert.Equal(t, "localhost", cfg.Database.Host)

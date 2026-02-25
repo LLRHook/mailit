@@ -51,7 +51,7 @@ export default function ApiKeysPage() {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState("");
   const [name, setName] = useState("");
-  const [permission, setPermission] = useState("full_access");
+  const [permission, setPermission] = useState("full");
 
   const { data, isLoading } = useQuery({
     queryKey: ["api-keys"],
@@ -69,7 +69,7 @@ export default function ApiKeysPage() {
       setNewKeyValue(data.data.key);
       setKeyDialogOpen(true);
       setName("");
-      setPermission("full_access");
+      setPermission("full");
     },
   });
 
@@ -188,8 +188,8 @@ export default function ApiKeysPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="full_access">Full Access</SelectItem>
-                    <SelectItem value="sending_access">Sending Only</SelectItem>
+                    <SelectItem value="full">Full Access</SelectItem>
+                    <SelectItem value="sending">Sending Only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
