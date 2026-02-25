@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { PlusIcon, KeyIcon, TrashIcon } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,9 @@ export default function ApiKeysPage() {
       setKeyDialogOpen(true);
       setName("");
       setPermission("full");
+      toast.success("API key created");
     },
+    onError: () => toast.error("Failed to create API key"),
   });
 
   const deleteMutation = useMutation({
@@ -78,7 +81,9 @@ export default function ApiKeysPage() {
       api.delete(`/api-keys/${id}`).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      toast.success("API key deleted");
     },
+    onError: () => toast.error("Failed to delete API key"),
   });
 
   const columns: ColumnDef<ApiKey>[] = [

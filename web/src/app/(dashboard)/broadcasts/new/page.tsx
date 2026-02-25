@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,28 +58,38 @@ export default function NewBroadcastPage() {
   });
 
   const handleSaveDraft = async () => {
-    const result = await createMutation.mutateAsync({
-      name,
-      from,
-      subject,
-      audience_id: audienceId,
-      html,
-      text,
-    });
-    router.push(`/broadcasts/${result.data.id}`);
+    try {
+      const result = await createMutation.mutateAsync({
+        name,
+        from,
+        subject,
+        audience_id: audienceId,
+        html,
+        text,
+      });
+      toast.success("Draft saved");
+      router.push(`/broadcasts/${result.data.id}`);
+    } catch {
+      toast.error("Failed to save draft");
+    }
   };
 
   const handleSendNow = async () => {
-    const result = await createMutation.mutateAsync({
-      name,
-      from,
-      subject,
-      audience_id: audienceId,
-      html,
-      text,
-    });
-    await sendMutation.mutateAsync(result.data.id);
-    router.push(`/broadcasts/${result.data.id}`);
+    try {
+      const result = await createMutation.mutateAsync({
+        name,
+        from,
+        subject,
+        audience_id: audienceId,
+        html,
+        text,
+      });
+      await sendMutation.mutateAsync(result.data.id);
+      toast.success("Broadcast sent");
+      router.push(`/broadcasts/${result.data.id}`);
+    } catch {
+      toast.error("Failed to send broadcast");
+    }
   };
 
   const isSubmitting = createMutation.isPending || sendMutation.isPending;

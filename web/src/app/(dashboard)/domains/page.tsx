@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { PlusIcon, GlobeIcon } from "lucide-react";
+import { PlusIcon, GlobeIcon, TrashIcon } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,35 +33,6 @@ interface Domain {
   created_at: string;
 }
 
-const columns: ColumnDef<Domain>[] = [
-  {
-    accessorKey: "name",
-    header: "Domain",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.getValue("name")}</span>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
-  },
-  {
-    accessorKey: "dns_status",
-    header: "DNS Records",
-    cell: ({ row }) => <StatusBadge status={row.getValue("dns_status")} />,
-  },
-  {
-    accessorKey: "created_at",
-    header: "Created At",
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {format(new Date(row.getValue("created_at")), "MMM d, yyyy HH:mm")}
-      </span>
-    ),
-  },
-];
-
 export default function DomainsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -81,9 +53,66 @@ export default function DomainsPage() {
       queryClient.invalidateQueries({ queryKey: ["domains"] });
       setDialogOpen(false);
       setDomainName("");
+      toast.success("Domain added");
       router.push(`/domains/${data.data.id}`);
     },
+    onError: () => toast.error("Failed to add domain"),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/domains/${id}`).then((res) => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["domains"] });
+      toast.success("Domain deleted");
+    },
+    onError: () => toast.error("Failed to delete domain"),
+  });
+
+  const columns: ColumnDef<Domain>[] = [
+    {
+      accessorKey: "name",
+      header: "Domain",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.getValue("name")}</span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
+    },
+    {
+      accessorKey: "dns_status",
+      header: "DNS Records",
+      cell: ({ row }) => <StatusBadge status={row.getValue("dns_status")} />,
+    },
+    {
+      accessorKey: "created_at",
+      header: "Created At",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {format(new Date(row.getValue("created_at")), "MMM d, yyyy HH:mm")}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteMutation.mutate(row.original.id);
+          }}
+        >
+          <TrashIcon className="size-3.5" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">

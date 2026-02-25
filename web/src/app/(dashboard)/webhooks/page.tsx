@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { PlusIcon, WebhookIcon } from "lucide-react";
+import { PlusIcon, WebhookIcon, TrashIcon } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,58 +21,9 @@ interface Webhook {
   created_at: string;
 }
 
-const columns: ColumnDef<Webhook>[] = [
-  {
-    accessorKey: "url",
-    header: "URL",
-    cell: ({ row }) => (
-      <span className="font-mono text-sm max-w-[300px] truncate block">
-        {row.getValue("url")}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "events",
-    header: "Events",
-    cell: ({ row }) => {
-      const events = row.getValue("events") as string[];
-      return (
-        <div className="flex flex-wrap gap-1">
-          {events.map((event) => (
-            <Badge key={event} variant="secondary" className="text-xs">
-              {event}
-            </Badge>
-          ))}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "active",
-    header: "Active",
-    cell: ({ row }) => (
-      <span
-        className={
-          row.getValue("active") ? "text-emerald-400" : "text-muted-foreground"
-        }
-      >
-        {row.getValue("active") ? "Active" : "Inactive"}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "created_at",
-    header: "Created At",
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {format(new Date(row.getValue("created_at")), "MMM d, yyyy HH:mm")}
-      </span>
-    ),
-  },
-];
-
 export default function WebhooksPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["webhooks"],
@@ -79,6 +31,82 @@ export default function WebhooksPage() {
   });
 
   const webhooks: Webhook[] = data?.data ?? [];
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/webhooks/${id}`).then((res) => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+      toast.success("Webhook deleted");
+    },
+    onError: () => toast.error("Failed to delete webhook"),
+  });
+
+  const columns: ColumnDef<Webhook>[] = [
+    {
+      accessorKey: "url",
+      header: "URL",
+      cell: ({ row }) => (
+        <span className="font-mono text-sm max-w-[300px] truncate block">
+          {row.getValue("url")}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "events",
+      header: "Events",
+      cell: ({ row }) => {
+        const events = row.getValue("events") as string[];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {events.map((event) => (
+              <Badge key={event} variant="secondary" className="text-xs">
+                {event}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "active",
+      header: "Active",
+      cell: ({ row }) => (
+        <span
+          className={
+            row.getValue("active") ? "text-emerald-400" : "text-muted-foreground"
+          }
+        >
+          {row.getValue("active") ? "Active" : "Inactive"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "created_at",
+      header: "Created At",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {format(new Date(row.getValue("created_at")), "MMM d, yyyy HH:mm")}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteMutation.mutate(row.original.id);
+          }}
+        >
+          <TrashIcon className="size-3.5" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">

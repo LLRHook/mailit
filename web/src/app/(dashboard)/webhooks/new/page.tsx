@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +30,10 @@ export default function NewWebhookPage() {
     mutationFn: (payload: { url: string; events: string[] }) =>
       api.post("/webhooks", payload).then((res) => res.data),
     onSuccess: () => {
+      toast.success("Webhook created");
       router.push("/webhooks");
     },
+    onError: () => toast.error("Failed to create webhook"),
   });
 
   const toggleEvent = (eventId: string) => {

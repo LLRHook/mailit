@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,27 +38,21 @@ export default function EditTemplatePage() {
 
   const template: TemplateDetail | undefined = data?.data;
 
-  const [form, setForm] = useState<{
-    name: string;
-    description: string;
-    subject: string;
-    html: string;
-    text: string;
-  } | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [subject, setSubject] = useState("");
+  const [html, setHtml] = useState("");
+  const [text, setText] = useState("");
 
-  const { name, description, subject, html, text } = form ?? {
-    name: template?.name ?? "",
-    description: template?.description ?? "",
-    subject: template?.subject ?? "",
-    html: template?.html ?? "",
-    text: template?.text ?? "",
-  };
-
-  const setName = (v: string) => setForm((f) => ({ ...f!, name: v }));
-  const setDescription = (v: string) => setForm((f) => ({ ...f!, description: v }));
-  const setSubject = (v: string) => setForm((f) => ({ ...f!, subject: v }));
-  const setHtml = (v: string) => setForm((f) => ({ ...f!, html: v }));
-  const setText = (v: string) => setForm((f) => ({ ...f!, text: v }));
+  useEffect(() => {
+    if (template) {
+      setName(template.name);
+      setDescription(template.description);
+      setSubject(template.subject);
+      setHtml(template.html);
+      setText(template.text);
+    }
+  }, [template]);
 
   const updateMutation = useMutation({
     mutationFn: (payload: {
@@ -70,7 +65,9 @@ export default function EditTemplatePage() {
       api.patch(`/templates/${params.id}`, payload).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["template", params.id] });
+      toast.success("Template saved");
     },
+    onError: () => toast.error("Failed to save template"),
   });
 
   const publishMutation = useMutation({
@@ -80,7 +77,9 @@ export default function EditTemplatePage() {
         .then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["template", params.id] });
+      toast.success("Template published");
     },
+    onError: () => toast.error("Failed to publish template"),
   });
 
   if (isLoading) {

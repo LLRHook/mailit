@@ -11,6 +11,7 @@ import {
   BookmarkIcon,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,7 +120,9 @@ function ContactsTab() {
       setEmail("");
       setFirstName("");
       setLastName("");
+      toast.success("Contact added");
     },
+    onError: () => toast.error("Failed to add contact"),
   });
 
   const contactColumns: ColumnDef<Contact>[] = [
@@ -304,7 +307,9 @@ function PropertiesTab() {
       setName("");
       setLabel("");
       setType("string");
+      toast.success("Property added");
     },
+    onError: () => toast.error("Failed to add property"),
   });
 
   const propertyColumns: ColumnDef<Property>[] = [
