@@ -38,8 +38,8 @@ func TestGenerateDKIMKeyPair(t *testing.T) {
 		assert.Equal(t, 2048, pubKey.N.BitLen())
 
 		// Verify public key matches private key.
-		assert.Equal(t, privKey.PublicKey.N, pubKey.N, "public keys should match")
-		assert.Equal(t, privKey.PublicKey.E, pubKey.E, "public key exponents should match")
+		assert.Equal(t, privKey.N, pubKey.N, "public keys should match")
+		assert.Equal(t, privKey.E, pubKey.E, "public key exponents should match")
 	})
 
 	t.Run("valid 1024-bit key (minimum)", func(t *testing.T) {
