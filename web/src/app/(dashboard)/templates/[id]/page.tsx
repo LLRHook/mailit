@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
@@ -44,15 +44,16 @@ export default function EditTemplatePage() {
   const [html, setHtml] = useState("");
   const [text, setText] = useState("");
 
-  useEffect(() => {
-    if (template) {
-      setName(template.name);
-      setDescription(template.description);
-      setSubject(template.subject);
-      setHtml(template.html);
-      setText(template.text);
-    }
-  }, [template]);
+  // Sync form state when template data loads for the first time.
+  const [initialized, setInitialized] = useState(false);
+  if (template && !initialized) {
+    setName(template.name);
+    setDescription(template.description);
+    setSubject(template.subject);
+    setHtml(template.html);
+    setText(template.text);
+    setInitialized(true);
+  }
 
   const updateMutation = useMutation({
     mutationFn: (payload: {

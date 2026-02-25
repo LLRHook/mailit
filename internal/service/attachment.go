@@ -40,7 +40,7 @@ func (s *LocalAttachmentStorage) Store(ctx context.Context, teamID uuid.UUID, fi
 	if err != nil {
 		return "", fmt.Errorf("creating attachment file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if _, err := io.Copy(f, content); err != nil {
 		return "", fmt.Errorf("writing attachment content: %w", err)
