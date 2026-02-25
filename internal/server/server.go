@@ -105,6 +105,9 @@ func New(cfg Config) *http.Server {
 		// Contacts
 		r.Post("/audiences/{audienceId}/contacts", h.Contact.Create)
 		r.Get("/audiences/{audienceId}/contacts", h.Contact.List)
+		r.Get("/audiences/{audienceId}/contacts/export", h.Contact.Export)
+		r.Post("/audiences/{audienceId}/contacts/import", h.ContactImport.Import)
+		r.Get("/audiences/{audienceId}/contacts/import/{jobId}", h.ContactImport.GetImportStatus)
 		r.Get("/audiences/{audienceId}/contacts/{contactId}", h.Contact.Get)
 		r.Patch("/audiences/{audienceId}/contacts/{contactId}", h.Contact.Update)
 		r.Delete("/audiences/{audienceId}/contacts/{contactId}", h.Contact.Delete)

@@ -92,6 +92,7 @@ type ContactRepository interface {
 	GetByAudienceAndID(ctx context.Context, audienceID, id uuid.UUID) (*model.Contact, error)
 	GetByAudienceAndEmail(ctx context.Context, audienceID uuid.UUID, email string) (*model.Contact, error)
 	List(ctx context.Context, audienceID uuid.UUID, limit, offset int) ([]model.Contact, int, error)
+	ListBySegmentID(ctx context.Context, segmentID uuid.UUID, limit, offset int) ([]model.Contact, int, error)
 	Update(ctx context.Context, contact *model.Contact) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -211,6 +212,13 @@ type TeamInvitationRepository interface {
 	ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]model.TeamInvitation, error)
 	MarkAccepted(ctx context.Context, id uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// ContactImportJobRepository defines persistence operations for contact import jobs.
+type ContactImportJobRepository interface {
+	Create(ctx context.Context, job *model.ContactImportJob) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.ContactImportJob, error)
+	Update(ctx context.Context, job *model.ContactImportJob) error
 }
 
 // TrackingLinkRepository defines persistence operations for email tracking links.

@@ -40,6 +40,7 @@ type Handlers struct {
 	Cleanup        *CleanupHandler
 	WebhookDeliver   *WebhookDeliverHandler
 	MetricsAggregate *MetricsAggregateHandler
+	ContactImport    *ContactImportHandler
 }
 
 // NewServer creates and configures a new asynq Server.
@@ -104,6 +105,9 @@ func NewMux(h Handlers) *asynq.ServeMux {
 	}
 	if h.MetricsAggregate != nil {
 		mux.HandleFunc(TaskMetricsAggregate, h.MetricsAggregate.ProcessTask)
+	}
+	if h.ContactImport != nil {
+		mux.HandleFunc(TaskContactImport, h.ContactImport.ProcessTask)
 	}
 
 	return mux

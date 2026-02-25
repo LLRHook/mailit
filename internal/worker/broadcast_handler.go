@@ -113,13 +113,20 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 		return fmt.Errorf("updating broadcast to sending: %w", err)
 	}
 
-	// 5. Fetch all contacts from the audience in pages.
+	// 5. Fetch contacts — from segment if specified, otherwise from audience.
 	const pageSize = 500
 	var totalEnqueued int
 	offset := 0
 
+	listContacts := func(limit, off int) ([]model.Contact, int, error) {
+		if broadcast.SegmentID != nil {
+			return h.contactRepo.ListBySegmentID(ctx, *broadcast.SegmentID, limit, off)
+		}
+		return h.contactRepo.List(ctx, *broadcast.AudienceID, limit, off)
+	}
+
 	for {
-		contacts, total, err := h.contactRepo.List(ctx, *broadcast.AudienceID, pageSize, offset)
+		contacts, total, err := listContacts(pageSize, offset)
 		if err != nil {
 			return fmt.Errorf("listing contacts at offset %d: %w", offset, err)
 		}

@@ -18,6 +18,7 @@ const (
 	TaskInboundProcess = "inbound:process"
 	TaskCleanupExpired    = "cleanup:expired"
 	TaskMetricsAggregate  = "metrics:aggregate"
+	TaskContactImport     = "contact:import"
 )
 
 // Queue names and their intended priority levels.
@@ -135,6 +136,21 @@ func NewInboundProcessTask(inboundEmailID uuid.UUID) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TaskInboundProcess, payload, asynq.Queue(QueueDefault), asynq.MaxRetry(3)), nil
+}
+
+// ContactImportPayload is the payload for importing contacts from CSV.
+type ContactImportPayload struct {
+	JobID  uuid.UUID `json:"job_id"`
+	TeamID uuid.UUID `json:"team_id"`
+}
+
+// NewContactImportTask creates an asynq task for importing contacts from CSV.
+func NewContactImportTask(jobID, teamID uuid.UUID) (*asynq.Task, error) {
+	payload, err := json.Marshal(ContactImportPayload{JobID: jobID, TeamID: teamID})
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TaskContactImport, payload, asynq.Queue(QueueDefault), asynq.MaxRetry(1)), nil
 }
 
 // NewCleanupExpiredTask creates an asynq task for cleaning up expired data.

@@ -205,6 +205,7 @@ func runServe(configPath string) {
 	logRepo := postgres.NewLogRepository(pool)
 	metricsRepo := postgres.NewMetricsRepository(pool)
 	trackingLinkRepo := postgres.NewTrackingLinkRepository(pool)
+	importJobRepo := postgres.NewContactImportJobRepository(pool)
 	settingsRepo := postgres.NewSettingsRepository(pool)
 	invitationRepo := postgres.NewTeamInvitationRepository(pool)
 
@@ -289,7 +290,7 @@ func runServe(configPath string) {
 	)
 
 	// --- Handlers ---
-	handlers := handler.NewHandlers(services)
+	handlers := handler.NewHandlers(services, importJobRepo, audienceRepo, asynqClient)
 
 	// --- API Key auth closures ---
 	apiKeyLookup := func(ctx context.Context, keyHash string) (*middleware.AuthContext, error) {
@@ -341,6 +342,7 @@ func runServe(configPath string) {
 		Cleanup:        worker.NewCleanupHandler(webhookEventRepo, logRepo, logger),
 		WebhookDeliver:   worker.NewWebhookDeliverHandler(dispatcher, logger),
 		MetricsAggregate: worker.NewMetricsAggregateHandler(pool, metricsRepo, logger),
+		ContactImport:    worker.NewContactImportHandler(importJobRepo, contactRepo, logger),
 	}
 	mux := worker.NewMux(workerHandlers)
 

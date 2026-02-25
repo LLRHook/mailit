@@ -268,6 +268,10 @@ func (m *MockContactRepository) List(ctx context.Context, audienceID uuid.UUID, 
 	args := m.Called(ctx, audienceID, limit, offset)
 	return args.Get(0).([]model.Contact), args.Int(1), args.Error(2)
 }
+func (m *MockContactRepository) ListBySegmentID(ctx context.Context, segmentID uuid.UUID, limit, offset int) ([]model.Contact, int, error) {
+	args := m.Called(ctx, segmentID, limit, offset)
+	return args.Get(0).([]model.Contact), args.Int(1), args.Error(2)
+}
 func (m *MockContactRepository) Update(ctx context.Context, contact *model.Contact) error {
 	return m.Called(ctx, contact).Error(0)
 }
@@ -655,6 +659,24 @@ func (m *MockTeamInvitationRepository) MarkAccepted(ctx context.Context, id uuid
 }
 func (m *MockTeamInvitationRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
+}
+
+// --- ContactImportJobRepository ---
+
+type MockContactImportJobRepository struct{ mock.Mock }
+
+func (m *MockContactImportJobRepository) Create(ctx context.Context, job *model.ContactImportJob) error {
+	return m.Called(ctx, job).Error(0)
+}
+func (m *MockContactImportJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.ContactImportJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ContactImportJob), args.Error(1)
+}
+func (m *MockContactImportJobRepository) Update(ctx context.Context, job *model.ContactImportJob) error {
+	return m.Called(ctx, job).Error(0)
 }
 
 // --- TrackingLinkRepository ---

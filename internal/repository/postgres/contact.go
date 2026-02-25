@@ -121,6 +121,44 @@ func (r *contactRepository) List(ctx context.Context, audienceID uuid.UUID, limi
 	return contacts, total, nil
 }
 
+func (r *contactRepository) ListBySegmentID(ctx context.Context, segmentID uuid.UUID, limit, offset int) ([]model.Contact, int, error) {
+	countQuery := `SELECT COUNT(*) FROM segment_contacts sc
+		JOIN contacts c ON c.id = sc.contact_id
+		WHERE sc.segment_id = $1`
+	var total int
+	err := r.pool.QueryRow(ctx, countQuery, segmentID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count segment contacts: %w", err)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT c.%s FROM contacts c
+		JOIN segment_contacts sc ON sc.contact_id = c.id
+		WHERE sc.segment_id = $1
+		ORDER BY c.created_at DESC
+		LIMIT $2 OFFSET $3`, contactColumns)
+
+	rows, err := r.pool.Query(ctx, query, segmentID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list segment contacts: %w", err)
+	}
+	defer rows.Close()
+
+	contacts, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (model.Contact, error) {
+		var c model.Contact
+		err := row.Scan(
+			&c.ID, &c.AudienceID, &c.Email, &c.FirstName, &c.LastName,
+			&c.Unsubscribed, &c.CreatedAt, &c.UpdatedAt,
+		)
+		return c, err
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("collect segment contacts: %w", err)
+	}
+
+	return contacts, total, nil
+}
+
 func (r *contactRepository) Update(ctx context.Context, contact *model.Contact) error {
 	query := fmt.Sprintf(`
 		UPDATE contacts
