@@ -349,9 +349,11 @@ func runServe(configPath string) {
 	// --- Inbound SMTP server (optional) ---
 	var smtpServer *gosmtp.Server
 	if cfg.SMTPInbound.Enabled {
+		attachmentStorage := service.NewLocalAttachmentStorage(cfg.Storage.LocalPath)
 		smtpBackend := smtppkg.NewBackend(
 			domainRepo,
 			inboundEmailRepo,
+			attachmentStorage,
 			asynqClient,
 			int64(cfg.SMTPInbound.MaxMessageBytes),
 			logger,
