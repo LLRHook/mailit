@@ -19,6 +19,7 @@ type Handlers struct {
 	InboundEmail    *InboundEmailHandler
 	Log             *LogHandler
 	Metrics         *MetricsHandler
+	Settings        *SettingsHandler
 }
 
 func NewHandlers(svc *service.Services) *Handlers {
@@ -38,5 +39,6 @@ func NewHandlers(svc *service.Services) *Handlers {
 		InboundEmail:    NewInboundEmailHandler(svc.InboundEmail),
 		Log:             NewLogHandler(svc.Log),
 		Metrics:         NewMetricsHandler(svc.Metrics),
+		Settings:        NewSettingsHandler(svc.Settings),
 	}
 }

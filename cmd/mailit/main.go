@@ -204,6 +204,8 @@ func runServe(configPath string) {
 	inboundEmailRepo := postgres.NewInboundEmailRepository(pool)
 	logRepo := postgres.NewLogRepository(pool)
 	metricsRepo := postgres.NewMetricsRepository(pool)
+	settingsRepo := postgres.NewSettingsRepository(pool)
+	invitationRepo := postgres.NewTeamInvitationRepository(pool)
 
 	// --- Engine ---
 	dnsResolver := engine.NewDNSResolver(cfg.DNS.Resolver, cfg.DNS.Timeout)
@@ -251,7 +253,21 @@ func runServe(configPath string) {
 		Webhook:         service.NewWebhookService(webhookRepo),
 		InboundEmail:    service.NewInboundEmailService(inboundEmailRepo),
 		Log:             service.NewLogService(logRepo),
-		Metrics:         service.NewMetricsService(metricsRepo),
+		Metrics: service.NewMetricsService(metricsRepo),
+		Settings: service.NewSettingsService(
+			settingsRepo,
+			invitationRepo,
+			userRepo,
+			teamMemberRepo,
+			service.SMTPDisplayConfig{
+				Host:       cfg.SMTPOutbound.Hostname,
+				Port:       587,
+				Encryption: "STARTTLS",
+			},
+			cfg.Auth.JWTSecret,
+			cfg.Auth.JWTExpiry,
+			cfg.Auth.BcryptCost,
+		),
 	}
 
 	metricsIncrementFn := func(ctx context.Context, teamID uuid.UUID, eventType string) {

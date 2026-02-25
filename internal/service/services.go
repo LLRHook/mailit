@@ -17,4 +17,5 @@ type Services struct {
 	InboundEmail    InboundEmailService
 	Log             LogService
 	Metrics         MetricsService
+	Settings        SettingsService
 }

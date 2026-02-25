@@ -63,6 +63,7 @@ func New(cfg Config) *http.Server {
 	// Public routes (auth)
 	r.Post("/auth/register", h.Auth.Register)
 	r.Post("/auth/login", h.Auth.Login)
+	r.Post("/auth/accept-invite", h.Settings.AcceptInvite)
 
 	// Authenticated API routes
 	r.Group(func(r chi.Router) {
@@ -153,6 +154,13 @@ func New(cfg Config) *http.Server {
 
 		// Metrics
 		r.Get("/metrics", h.Metrics.Get)
+
+		// Settings
+		r.Get("/settings/usage", h.Settings.GetUsage)
+		r.Get("/settings/team", h.Settings.GetTeam)
+		r.Patch("/settings/team", h.Settings.UpdateTeam)
+		r.Get("/settings/smtp", h.Settings.GetSMTP)
+		r.Post("/settings/team/invite", h.Settings.InviteMember)
 	})
 
 	return &http.Server{

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/mailit-dev/mailit/internal/dto"
 	"github.com/mailit-dev/mailit/internal/model"
 )
 
@@ -604,4 +605,54 @@ func (m *MockMetricsRepository) AggregateTotals(ctx context.Context, teamID uuid
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*model.EmailMetrics), args.Error(1)
+}
+
+// --- SettingsRepository ---
+
+type MockSettingsRepository struct{ mock.Mock }
+
+func (m *MockSettingsRepository) GetUsageCounts(ctx context.Context, teamID uuid.UUID) (*dto.UsageResponse, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UsageResponse), args.Error(1)
+}
+func (m *MockSettingsRepository) GetTeamWithMembers(ctx context.Context, teamID uuid.UUID) (*dto.TeamResponse, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+func (m *MockSettingsRepository) UpdateTeamName(ctx context.Context, teamID uuid.UUID, name string) error {
+	return m.Called(ctx, teamID, name).Error(0)
+}
+
+// --- TeamInvitationRepository ---
+
+type MockTeamInvitationRepository struct{ mock.Mock }
+
+func (m *MockTeamInvitationRepository) Create(ctx context.Context, invitation *model.TeamInvitation) error {
+	return m.Called(ctx, invitation).Error(0)
+}
+func (m *MockTeamInvitationRepository) GetByToken(ctx context.Context, token string) (*model.TeamInvitation, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.TeamInvitation), args.Error(1)
+}
+func (m *MockTeamInvitationRepository) ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]model.TeamInvitation, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.TeamInvitation), args.Error(1)
+}
+func (m *MockTeamInvitationRepository) MarkAccepted(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockTeamInvitationRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
 }

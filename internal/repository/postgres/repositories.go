@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/mailit-dev/mailit/internal/dto"
 	"github.com/mailit-dev/mailit/internal/model"
 )
 
@@ -194,6 +195,22 @@ type InboundEmailRepository interface {
 type LogRepository interface {
 	Create(ctx context.Context, log *model.Log) error
 	List(ctx context.Context, teamID uuid.UUID, level string, limit, offset int) ([]model.Log, int, error)
+}
+
+// SettingsRepository defines read operations for the settings page.
+type SettingsRepository interface {
+	GetUsageCounts(ctx context.Context, teamID uuid.UUID) (*dto.UsageResponse, error)
+	GetTeamWithMembers(ctx context.Context, teamID uuid.UUID) (*dto.TeamResponse, error)
+	UpdateTeamName(ctx context.Context, teamID uuid.UUID, name string) error
+}
+
+// TeamInvitationRepository defines persistence operations for team invitations.
+type TeamInvitationRepository interface {
+	Create(ctx context.Context, invitation *model.TeamInvitation) error
+	GetByToken(ctx context.Context, token string) (*model.TeamInvitation, error)
+	ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]model.TeamInvitation, error)
+	MarkAccepted(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // MetricsRepository defines persistence operations for email metrics.

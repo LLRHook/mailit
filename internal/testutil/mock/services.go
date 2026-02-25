@@ -442,3 +442,46 @@ func (m *MockMetricsService) Get(ctx context.Context, teamID uuid.UUID, period s
 func (m *MockMetricsService) IncrementCounter(ctx context.Context, teamID uuid.UUID, eventType string) error {
 	return m.Called(ctx, teamID, eventType).Error(0)
 }
+
+// --- SettingsService ---
+
+type MockSettingsService struct{ mock.Mock }
+
+func (m *MockSettingsService) GetUsage(ctx context.Context, teamID uuid.UUID) (*dto.UsageResponse, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UsageResponse), args.Error(1)
+}
+func (m *MockSettingsService) GetTeam(ctx context.Context, teamID uuid.UUID) (*dto.TeamResponse, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+func (m *MockSettingsService) UpdateTeam(ctx context.Context, teamID uuid.UUID, req *dto.UpdateTeamRequest) error {
+	return m.Called(ctx, teamID, req).Error(0)
+}
+func (m *MockSettingsService) GetSMTPConfig() *dto.SMTPConfigResponse {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*dto.SMTPConfigResponse)
+}
+func (m *MockSettingsService) InviteMember(ctx context.Context, teamID uuid.UUID, req *dto.InviteMemberRequest) (*model.TeamInvitation, error) {
+	args := m.Called(ctx, teamID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.TeamInvitation), args.Error(1)
+}
+func (m *MockSettingsService) AcceptInvite(ctx context.Context, req *dto.AcceptInviteRequest) (*dto.AuthResponse, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.AuthResponse), args.Error(1)
+}
