@@ -656,3 +656,21 @@ func (m *MockTeamInvitationRepository) MarkAccepted(ctx context.Context, id uuid
 func (m *MockTeamInvitationRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
+
+// --- TrackingLinkRepository ---
+
+type MockTrackingLinkRepository struct{ mock.Mock }
+
+func (m *MockTrackingLinkRepository) Create(ctx context.Context, link *model.TrackingLink) error {
+	return m.Called(ctx, link).Error(0)
+}
+func (m *MockTrackingLinkRepository) CreateBatch(ctx context.Context, links []*model.TrackingLink) error {
+	return m.Called(ctx, links).Error(0)
+}
+func (m *MockTrackingLinkRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.TrackingLink, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.TrackingLink), args.Error(1)
+}

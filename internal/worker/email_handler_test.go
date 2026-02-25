@@ -145,7 +145,7 @@ func TestEmailSendHandler_ProcessTask_Success(t *testing.T) {
 		webhookCalled = true
 	}
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, webhookDispatch, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, webhookDispatch, nil, "", newDiscardLogger())
 
 	emailID := uuid.New()
 	teamID := uuid.New()
@@ -189,7 +189,7 @@ func TestEmailSendHandler_ProcessTask_CancelledEmail(t *testing.T) {
 	suppressionRepo := new(mockSuppressionRepo)
 	sender := new(mockSender)
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, nil, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, nil, nil, "", newDiscardLogger())
 
 	emailID := uuid.New()
 	teamID := uuid.New()
@@ -216,7 +216,7 @@ func TestEmailSendHandler_ProcessTask_AllSuppressed(t *testing.T) {
 	suppressionRepo := new(mockSuppressionRepo)
 	sender := new(mockSender)
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, nil, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, nil, nil, "", newDiscardLogger())
 
 	emailID := uuid.New()
 	teamID := uuid.New()
@@ -254,7 +254,7 @@ func TestEmailSendHandler_ProcessTask_AlreadySent(t *testing.T) {
 	suppressionRepo := new(mockSuppressionRepo)
 	sender := new(mockSender)
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, nil, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, nil, nil, "", newDiscardLogger())
 
 	emailID := uuid.New()
 	teamID := uuid.New()
@@ -281,7 +281,7 @@ func TestEmailSendHandler_ProcessTask_WithDKIM(t *testing.T) {
 	suppressionRepo := new(mockSuppressionRepo)
 	sender := new(mockSender)
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, nil, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, nil, nil, "", newDiscardLogger())
 
 	emailID := uuid.New()
 	teamID := uuid.New()
@@ -336,7 +336,7 @@ func TestEmailSendHandler_ProcessTask_InvalidPayload(t *testing.T) {
 	suppressionRepo := new(mockSuppressionRepo)
 	sender := new(mockSender)
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, nil, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, nil, nil, "", newDiscardLogger())
 
 	task := asynq.NewTask(TaskEmailSend, []byte("invalid json"))
 
@@ -383,7 +383,7 @@ func TestFilterSuppressed(t *testing.T) {
 	suppressionRepo := new(mockSuppressionRepo)
 	sender := new(mockSender)
 
-	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, sender, nil, nil, newDiscardLogger())
+	h := NewEmailSendHandler(emailRepo, eventRepo, domainRepo, suppressionRepo, nil, sender, nil, nil, "", newDiscardLogger())
 
 	teamID := uuid.New()
 	ctx := context.Background()

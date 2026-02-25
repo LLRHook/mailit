@@ -213,6 +213,13 @@ type TeamInvitationRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// TrackingLinkRepository defines persistence operations for email tracking links.
+type TrackingLinkRepository interface {
+	Create(ctx context.Context, link *model.TrackingLink) error
+	CreateBatch(ctx context.Context, links []*model.TrackingLink) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.TrackingLink, error)
+}
+
 // MetricsRepository defines persistence operations for email metrics.
 type MetricsRepository interface {
 	Upsert(ctx context.Context, m *model.EmailMetrics) error

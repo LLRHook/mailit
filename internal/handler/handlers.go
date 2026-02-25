@@ -20,6 +20,7 @@ type Handlers struct {
 	Log             *LogHandler
 	Metrics         *MetricsHandler
 	Settings        *SettingsHandler
+	Tracking        *TrackingHandler
 }
 
 func NewHandlers(svc *service.Services) *Handlers {
@@ -40,5 +41,6 @@ func NewHandlers(svc *service.Services) *Handlers {
 		Log:             NewLogHandler(svc.Log),
 		Metrics:         NewMetricsHandler(svc.Metrics),
 		Settings:        NewSettingsHandler(svc.Settings),
+		Tracking:        NewTrackingHandler(svc.Tracking),
 	}
 }

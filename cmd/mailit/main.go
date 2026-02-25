@@ -204,6 +204,7 @@ func runServe(configPath string) {
 	inboundEmailRepo := postgres.NewInboundEmailRepository(pool)
 	logRepo := postgres.NewLogRepository(pool)
 	metricsRepo := postgres.NewMetricsRepository(pool)
+	trackingLinkRepo := postgres.NewTrackingLinkRepository(pool)
 	settingsRepo := postgres.NewSettingsRepository(pool)
 	invitationRepo := postgres.NewTeamInvitationRepository(pool)
 
@@ -276,6 +277,17 @@ func runServe(configPath string) {
 		}
 	}
 
+	// Build tracking service (needs webhookDispatchFn and metricsIncrementFn).
+	services.Tracking = service.NewTrackingService(
+		trackingLinkRepo,
+		emailRepo,
+		emailEventRepo,
+		contactRepo,
+		audienceRepo,
+		webhookDispatchFn,
+		metricsIncrementFn,
+	)
+
 	// --- Handlers ---
 	handlers := handler.NewHandlers(services)
 
@@ -320,9 +332,9 @@ func runServe(configPath string) {
 
 	// --- Worker Mux ---
 	workerHandlers := worker.Handlers{
-		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, emailSenderAdapter, webhookDispatchFn, metricsIncrementFn, logger),
+		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, trackingLinkRepo, emailSenderAdapter, webhookDispatchFn, metricsIncrementFn, cfg.Server.BaseURL, logger),
 		EmailBatchSend: worker.NewBatchEmailSendHandler(asynqClient, logger),
-		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, asynqClient, logger),
+		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, templateVersionRepo, asynqClient, logger),
 		DomainVerify:   worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
 		Bounce:         worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),
 		Inbound:        worker.NewInboundHandler(inboundEmailRepo, webhookDispatchFn, logger),

@@ -65,6 +65,11 @@ func New(cfg Config) *http.Server {
 	r.Post("/auth/login", h.Auth.Login)
 	r.Post("/auth/accept-invite", h.Settings.AcceptInvite)
 
+	// Public tracking routes (no auth)
+	r.Get("/track/open/{id}", h.Tracking.TrackOpen)
+	r.Get("/track/click/{id}", h.Tracking.TrackClick)
+	r.Post("/unsubscribe", h.Tracking.Unsubscribe)
+
 	// Authenticated API routes
 	r.Group(func(r chi.Router) {
 		r.Use(authMw)

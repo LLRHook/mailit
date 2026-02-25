@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -58,9 +59,11 @@ type EmailSendHandler struct {
 	eventRepo        postgres.EmailEventRepository
 	domainRepo       postgres.DomainRepository
 	suppressionRepo  postgres.SuppressionRepository
+	trackingRepo     postgres.TrackingLinkRepository
 	sender           EmailSender
 	webhookDispatch  WebhookDispatchFunc
 	metricsIncrement MetricsIncrementFunc
+	baseURL          string
 	logger           *slog.Logger
 }
 
@@ -70,9 +73,11 @@ func NewEmailSendHandler(
 	eventRepo postgres.EmailEventRepository,
 	domainRepo postgres.DomainRepository,
 	suppressionRepo postgres.SuppressionRepository,
+	trackingRepo postgres.TrackingLinkRepository,
 	sender EmailSender,
 	webhookDispatch WebhookDispatchFunc,
 	metricsIncrement MetricsIncrementFunc,
+	baseURL string,
 	logger *slog.Logger,
 ) *EmailSendHandler {
 	return &EmailSendHandler{
@@ -80,9 +85,11 @@ func NewEmailSendHandler(
 		eventRepo:        eventRepo,
 		domainRepo:       domainRepo,
 		suppressionRepo:  suppressionRepo,
+		trackingRepo:     trackingRepo,
 		sender:           sender,
 		webhookDispatch:  webhookDispatch,
 		metricsIncrement: metricsIncrement,
+		baseURL:          baseURL,
 		logger:           logger,
 	}
 }
@@ -130,28 +137,69 @@ func (h *EmailSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) error
 		return nil
 	}
 
-	// 3. Get domain for DKIM signing.
+	// 3. Get domain for DKIM signing and tracking config.
 	var dkimDomain, dkimSelector string
 	var dkimKey []byte
+	var domainObj *model.Domain
 
 	if email.DomainID != nil {
 		domain, domErr := h.domainRepo.GetByID(ctx, *email.DomainID)
 		if domErr != nil {
 			log.Warn("failed to fetch domain for DKIM, sending without DKIM", "error", domErr)
-		} else if domain.DKIMPrivateKey != nil {
-			dkimDomain = domain.Name
-			dkimSelector = domain.DKIMSelector
-			dkimKey = []byte(*domain.DKIMPrivateKey)
+		} else {
+			domainObj = domain
+			if domain.DKIMPrivateKey != nil {
+				dkimDomain = domain.Name
+				dkimSelector = domain.DKIMSelector
+				dkimKey = []byte(*domain.DKIMPrivateKey)
+			}
 		}
 	} else {
 		// Try to resolve the domain from the From address.
 		fromDomain := extractDomain(email.FromAddress)
 		if fromDomain != "" {
 			domain, domErr := h.domainRepo.GetByTeamAndName(ctx, email.TeamID, fromDomain)
-			if domErr == nil && domain.DKIMPrivateKey != nil {
-				dkimDomain = domain.Name
-				dkimSelector = domain.DKIMSelector
-				dkimKey = []byte(*domain.DKIMPrivateKey)
+			if domErr == nil {
+				domainObj = domain
+				if domain.DKIMPrivateKey != nil {
+					dkimDomain = domain.Name
+					dkimSelector = domain.DKIMSelector
+					dkimKey = []byte(*domain.DKIMPrivateKey)
+				}
+			}
+		}
+	}
+
+	// 3b. Inject tracking (open pixel, click rewriting, unsubscribe headers).
+	htmlBody := ptrToString(email.HTMLBody)
+	extraHeaders := make(map[string]string)
+	primaryRecipient := ""
+	if len(filteredTo) > 0 {
+		primaryRecipient = filteredTo[0]
+	}
+
+	if h.trackingRepo != nil && h.baseURL != "" && primaryRecipient != "" {
+		// Unsubscribe link (always inject for compliance).
+		unsubLink := h.createTrackingLink(ctx, email.ID, email.TeamID, model.TrackingTypeUnsubscribe, "", primaryRecipient)
+		if unsubLink != nil {
+			unsubURL := fmt.Sprintf("%s/unsubscribe?token=%s", h.baseURL, unsubLink.ID)
+			extraHeaders["List-Unsubscribe"] = "<" + unsubURL + ">"
+			extraHeaders["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+		}
+
+		if htmlBody != "" && domainObj != nil {
+			// Open tracking pixel.
+			if domainObj.OpenTracking {
+				openLink := h.createTrackingLink(ctx, email.ID, email.TeamID, model.TrackingTypeOpen, "", primaryRecipient)
+				if openLink != nil {
+					pixel := fmt.Sprintf(`<img src="%s/track/open/%s" width="1" height="1" alt="" style="display:none" />`, h.baseURL, openLink.ID)
+					htmlBody = injectPixel(htmlBody, pixel)
+				}
+			}
+
+			// Click tracking — rewrite <a href="..."> links.
+			if domainObj.ClickTracking {
+				htmlBody = h.rewriteLinks(ctx, htmlBody, email.ID, email.TeamID, primaryRecipient)
 			}
 		}
 	}
@@ -164,6 +212,14 @@ func (h *EmailSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) error
 	}
 
 	// 5. Build outbound message.
+	headers := jsonMapToStringMap(email.Headers)
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	for k, v := range extraHeaders {
+		headers[k] = v
+	}
+
 	msg := &OutboundMessage{
 		MessageID:    ptrToString(email.MessageID),
 		From:         email.FromAddress,
@@ -172,9 +228,9 @@ func (h *EmailSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) error
 		Bcc:          filteredBcc,
 		ReplyTo:      ptrToString(email.ReplyTo),
 		Subject:      email.Subject,
-		HTMLBody:     ptrToString(email.HTMLBody),
+		HTMLBody:     htmlBody,
 		TextBody:     ptrToString(email.TextBody),
-		Headers:      jsonMapToStringMap(email.Headers),
+		Headers:      headers,
 		DKIMDomain:   dkimDomain,
 		DKIMSelector: dkimSelector,
 		DKIMKey:      dkimKey,
@@ -354,4 +410,62 @@ func jsonMapToStringMap(m model.JSONMap) map[string]string {
 		}
 	}
 	return result
+}
+
+// createTrackingLink creates a tracking link record in the database.
+func (h *EmailSendHandler) createTrackingLink(ctx context.Context, emailID, teamID uuid.UUID, linkType, originalURL, recipient string) *model.TrackingLink {
+	link := &model.TrackingLink{
+		ID:        uuid.New(),
+		EmailID:   emailID,
+		TeamID:    teamID,
+		Type:      linkType,
+		Recipient: recipient,
+		CreatedAt: time.Now().UTC(),
+	}
+	if originalURL != "" {
+		link.OriginalURL = &originalURL
+	}
+	if err := h.trackingRepo.Create(ctx, link); err != nil {
+		h.logger.Error("failed to create tracking link", "error", err, "type", linkType)
+		return nil
+	}
+	return link
+}
+
+// injectPixel appends a tracking pixel before the closing </body> tag, or at
+// the end of the HTML if no </body> tag is found.
+func injectPixel(html, pixel string) string {
+	idx := strings.LastIndex(strings.ToLower(html), "</body>")
+	if idx >= 0 {
+		return html[:idx] + pixel + html[idx:]
+	}
+	return html + pixel
+}
+
+// hrefRegex matches href="..." or href='...' in anchor tags.
+var hrefRegex = regexp.MustCompile(`(<a\s[^>]*href\s*=\s*")([^"]+)(")`)
+
+// rewriteLinks replaces all <a href="..."> URLs in HTML with click-tracking URLs.
+func (h *EmailSendHandler) rewriteLinks(ctx context.Context, html string, emailID, teamID uuid.UUID, recipient string) string {
+	return hrefRegex.ReplaceAllStringFunc(html, func(match string) string {
+		parts := hrefRegex.FindStringSubmatch(match)
+		if len(parts) < 4 {
+			return match
+		}
+		originalURL := parts[2]
+
+		// Skip mailto:, tel:, and # links.
+		lower := strings.ToLower(originalURL)
+		if strings.HasPrefix(lower, "mailto:") || strings.HasPrefix(lower, "tel:") || strings.HasPrefix(lower, "#") {
+			return match
+		}
+
+		link := h.createTrackingLink(ctx, emailID, teamID, model.TrackingTypeClick, originalURL, recipient)
+		if link == nil {
+			return match
+		}
+
+		trackingURL := fmt.Sprintf("%s/track/click/%s", h.baseURL, link.ID)
+		return parts[1] + trackingURL + parts[3]
+	})
 }

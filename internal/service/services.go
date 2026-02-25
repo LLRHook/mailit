@@ -18,4 +18,5 @@ type Services struct {
 	Log             LogService
 	Metrics         MetricsService
 	Settings        SettingsService
+	Tracking        TrackingService
 }

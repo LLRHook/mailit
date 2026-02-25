@@ -485,3 +485,18 @@ func (m *MockSettingsService) AcceptInvite(ctx context.Context, req *dto.AcceptI
 	}
 	return args.Get(0).(*dto.AuthResponse), args.Error(1)
 }
+
+// --- TrackingService ---
+
+type MockTrackingService struct{ mock.Mock }
+
+func (m *MockTrackingService) HandleOpen(ctx context.Context, linkID uuid.UUID) error {
+	return m.Called(ctx, linkID).Error(0)
+}
+func (m *MockTrackingService) HandleClick(ctx context.Context, linkID uuid.UUID) (string, error) {
+	args := m.Called(ctx, linkID)
+	return args.String(0), args.Error(1)
+}
+func (m *MockTrackingService) HandleUnsubscribe(ctx context.Context, linkID uuid.UUID) error {
+	return m.Called(ctx, linkID).Error(0)
+}
