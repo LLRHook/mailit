@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,8 +13,11 @@ func TestLoad_Defaults(t *testing.T) {
 	// Clear any MAILIT_ environment variables that could interfere.
 	for _, env := range os.Environ() {
 		if len(env) > 7 && env[:7] == "MAILIT_" {
-			key := env[:len(env)-len(env)+len(env[:indexByte(env, '=')])]
-			os.Unsetenv(key)
+			if idx := strings.IndexByte(env, '='); idx > 0 {
+				key := env[:idx]
+				t.Setenv(key, os.Getenv(key)) // register for cleanup
+				_ = os.Unsetenv(key)
+			}
 		}
 	}
 
@@ -188,12 +192,3 @@ func TestWebhooksConfig_ParseRetryDelays(t *testing.T) {
 	})
 }
 
-// indexByte is a helper to find the index of a byte in a string.
-func indexByte(s string, b byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == b {
-			return i
-		}
-	}
-	return -1
-}

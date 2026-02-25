@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import { createElement } from 'react'
 import { vi } from 'vitest'
 
 // Mock next/navigation
@@ -18,15 +19,12 @@ vi.mock('next/navigation', () => ({
 }))
 
 // Mock next/image — use createElement to avoid JSX in .ts file
-vi.mock('next/image', () => {
-  const { createElement } = require('react')
-  return {
-    default: (props: Record<string, unknown>) => {
-      const { fill, priority, ...rest } = props
-      return createElement('img', rest)
-    },
-  }
-})
+vi.mock('next/image', () => ({
+  default: (props: Record<string, unknown>) => {
+    const { fill: _fill, priority: _priority, ...rest } = props
+    return createElement('img', rest)
+  },
+}))
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
