@@ -31,7 +31,7 @@ func (h *MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Get(r.Context(), auth.TeamID, period)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)

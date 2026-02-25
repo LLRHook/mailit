@@ -44,7 +44,7 @@ func (h *EmailHandler) Send(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Send(r.Context(), auth.TeamID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -70,7 +70,7 @@ func (h *EmailHandler) BatchSend(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.BatchSend(r.Context(), auth.TeamID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -88,7 +88,7 @@ func (h *EmailHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.List(r.Context(), auth.TeamID, &params)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -110,7 +110,7 @@ func (h *EmailHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Get(r.Context(), auth.TeamID, emailID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -138,7 +138,7 @@ func (h *EmailHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Update(r.Context(), auth.TeamID, emailID, req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -160,7 +160,7 @@ func (h *EmailHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Cancel(r.Context(), auth.TeamID, emailID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)

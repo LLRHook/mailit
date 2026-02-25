@@ -39,7 +39,7 @@ func (h *TemplateHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Create(r.Context(), auth.TeamID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusCreated, resp)
@@ -57,7 +57,7 @@ func (h *TemplateHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.List(r.Context(), auth.TeamID, &params)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -79,7 +79,7 @@ func (h *TemplateHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Get(r.Context(), auth.TeamID, templateID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -107,7 +107,7 @@ func (h *TemplateHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Update(r.Context(), auth.TeamID, templateID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -128,7 +128,7 @@ func (h *TemplateHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.Delete(r.Context(), auth.TeamID, templateID); err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
@@ -150,7 +150,7 @@ func (h *TemplateHandler) Publish(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Publish(r.Context(), auth.TeamID, templateID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)

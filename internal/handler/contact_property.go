@@ -39,7 +39,7 @@ func (h *ContactPropertyHandler) Create(w http.ResponseWriter, r *http.Request) 
 
 	resp, err := h.service.Create(r.Context(), auth.TeamID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusCreated, resp)
@@ -55,7 +55,7 @@ func (h *ContactPropertyHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.List(r.Context(), auth.TeamID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -83,7 +83,7 @@ func (h *ContactPropertyHandler) Update(w http.ResponseWriter, r *http.Request) 
 
 	resp, err := h.service.Update(r.Context(), auth.TeamID, propertyID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -104,7 +104,7 @@ func (h *ContactPropertyHandler) Delete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.service.Delete(r.Context(), auth.TeamID, propertyID); err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, map[string]bool{"deleted": true})

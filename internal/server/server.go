@@ -58,12 +58,16 @@ func New(cfg Config) *http.Server {
 	sendLimitMw := middleware.SendRateLimit(cfg.Redis, cfg.RateLimitCfg)
 	batchLimitMw := middleware.BatchRateLimit(cfg.Redis, cfg.RateLimitCfg)
 
+	// IP-based rate limits for public auth endpoints.
+	registerLimitMw := middleware.IPRateLimit(cfg.Redis, 5, time.Minute)
+	loginLimitMw := middleware.IPRateLimit(cfg.Redis, 10, time.Minute)
+
 	h := cfg.Handlers
 
-	// Public routes (auth)
-	r.Post("/auth/register", h.Auth.Register)
-	r.Post("/auth/login", h.Auth.Login)
-	r.Post("/auth/accept-invite", h.Settings.AcceptInvite)
+	// Public routes (auth) with stricter IP-based rate limits.
+	r.With(registerLimitMw).Post("/auth/register", h.Auth.Register)
+	r.With(loginLimitMw).Post("/auth/login", h.Auth.Login)
+	r.With(loginLimitMw).Post("/auth/accept-invite", h.Settings.AcceptInvite)
 
 	// Public tracking routes (no auth)
 	r.Get("/track/open/{id}", h.Tracking.TrackOpen)

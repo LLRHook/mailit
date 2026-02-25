@@ -27,7 +27,7 @@ func (h *SettingsHandler) GetUsage(w http.ResponseWriter, r *http.Request) {
 
 	usage, err := h.service.GetUsage(r.Context(), auth.TeamID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, usage)
@@ -43,7 +43,7 @@ func (h *SettingsHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 
 	team, err := h.service.GetTeam(r.Context(), auth.TeamID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, team)
@@ -68,7 +68,7 @@ func (h *SettingsHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.UpdateTeam(r.Context(), auth.TeamID, &req); err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, map[string]string{"message": "team updated"})
@@ -106,7 +106,7 @@ func (h *SettingsHandler) InviteMember(w http.ResponseWriter, r *http.Request) {
 
 	invitation, err := h.service.InviteMember(r.Context(), auth.TeamID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusCreated, invitation)
