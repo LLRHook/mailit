@@ -46,7 +46,7 @@ func (r *trackingLinkRepository) CreateBatch(ctx context.Context, links []*model
 	}
 
 	br := r.pool.SendBatch(ctx, batch)
-	defer br.Close()
+	defer func() { _ = br.Close() }()
 
 	for range links {
 		if _, err := br.Exec(); err != nil {

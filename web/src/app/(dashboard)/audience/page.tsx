@@ -188,14 +188,17 @@ function ContactsTab() {
     [audienceId, queryClient]
   );
 
+  const importJobId = importJob?.id;
+  const importJobStatus = importJob?.status;
+
   useEffect(() => {
-    if (importJob && (importJob.status === "pending" || importJob.status === "processing")) {
-      pollImportStatus(importJob.id);
+    if (importJobId && (importJobStatus === "pending" || importJobStatus === "processing")) {
+      pollImportStatus(importJobId);
     }
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [importJob?.id, importJob?.status, pollImportStatus]);
+  }, [importJobId, importJobStatus, pollImportStatus]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

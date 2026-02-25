@@ -69,7 +69,7 @@ func (h *ContactImportHandler) Import(w http.ResponseWriter, r *http.Request) {
 		pkg.Error(w, http.StatusBadRequest, "missing 'file' field")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read CSV content.
 	csvBytes, err := io.ReadAll(file)
