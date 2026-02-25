@@ -203,6 +203,11 @@ func runServe(configPath string) {
 	suppressionRepo := postgres.NewSuppressionRepository(pool)
 	inboundEmailRepo := postgres.NewInboundEmailRepository(pool)
 	logRepo := postgres.NewLogRepository(pool)
+	metricsRepo := postgres.NewMetricsRepository(pool)
+	trackingLinkRepo := postgres.NewTrackingLinkRepository(pool)
+	importJobRepo := postgres.NewContactImportJobRepository(pool)
+	settingsRepo := postgres.NewSettingsRepository(pool)
+	invitationRepo := postgres.NewTeamInvitationRepository(pool)
 
 	// --- Engine ---
 	dnsResolver := engine.NewDNSResolver(cfg.DNS.Resolver, cfg.DNS.Timeout)
@@ -250,10 +255,42 @@ func runServe(configPath string) {
 		Webhook:         service.NewWebhookService(webhookRepo),
 		InboundEmail:    service.NewInboundEmailService(inboundEmailRepo),
 		Log:             service.NewLogService(logRepo),
+		Metrics: service.NewMetricsService(metricsRepo),
+		Settings: service.NewSettingsService(
+			settingsRepo,
+			invitationRepo,
+			userRepo,
+			teamMemberRepo,
+			service.SMTPDisplayConfig{
+				Host:       cfg.SMTPOutbound.Hostname,
+				Port:       587,
+				Encryption: "STARTTLS",
+			},
+			cfg.Auth.JWTSecret,
+			cfg.Auth.JWTExpiry,
+			cfg.Auth.BcryptCost,
+		),
 	}
 
+	metricsIncrementFn := func(ctx context.Context, teamID uuid.UUID, eventType string) {
+		if err := services.Metrics.IncrementCounter(ctx, teamID, eventType); err != nil {
+			logger.Error("metrics increment failed", "error", err, "team_id", teamID, "event_type", eventType)
+		}
+	}
+
+	// Build tracking service (needs webhookDispatchFn and metricsIncrementFn).
+	services.Tracking = service.NewTrackingService(
+		trackingLinkRepo,
+		emailRepo,
+		emailEventRepo,
+		contactRepo,
+		audienceRepo,
+		webhookDispatchFn,
+		metricsIncrementFn,
+	)
+
 	// --- Handlers ---
-	handlers := handler.NewHandlers(services)
+	handlers := handler.NewHandlers(services, importJobRepo, audienceRepo, asynqClient)
 
 	// --- API Key auth closures ---
 	apiKeyLookup := func(ctx context.Context, keyHash string) (*middleware.AuthContext, error) {
@@ -296,22 +333,27 @@ func runServe(configPath string) {
 
 	// --- Worker Mux ---
 	workerHandlers := worker.Handlers{
-		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, emailSenderAdapter, webhookDispatchFn, logger),
-		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, asynqClient, logger),
+		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, trackingLinkRepo, emailSenderAdapter, webhookDispatchFn, metricsIncrementFn, cfg.Server.BaseURL, logger),
+		EmailBatchSend: worker.NewBatchEmailSendHandler(asynqClient, logger),
+		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, templateVersionRepo, asynqClient, logger),
 		DomainVerify:   worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
 		Bounce:         worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),
 		Inbound:        worker.NewInboundHandler(inboundEmailRepo, webhookDispatchFn, logger),
 		Cleanup:        worker.NewCleanupHandler(webhookEventRepo, logRepo, logger),
-		WebhookDeliver: worker.NewWebhookDeliverHandler(dispatcher, logger),
+		WebhookDeliver:   worker.NewWebhookDeliverHandler(dispatcher, logger),
+		MetricsAggregate: worker.NewMetricsAggregateHandler(pool, metricsRepo, logger),
+		ContactImport:    worker.NewContactImportHandler(importJobRepo, contactRepo, logger),
 	}
 	mux := worker.NewMux(workerHandlers)
 
 	// --- Inbound SMTP server (optional) ---
 	var smtpServer *gosmtp.Server
 	if cfg.SMTPInbound.Enabled {
+		attachmentStorage := service.NewLocalAttachmentStorage(cfg.Storage.LocalPath)
 		smtpBackend := smtppkg.NewBackend(
 			domainRepo,
 			inboundEmailRepo,
+			attachmentStorage,
 			asynqClient,
 			int64(cfg.SMTPInbound.MaxMessageBytes),
 			logger,

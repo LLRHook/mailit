@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
+	"github.com/mailit-dev/mailit/internal/model"
 	"github.com/mailit-dev/mailit/internal/repository/postgres"
 )
 
@@ -61,11 +61,11 @@ func (h *InboundHandler) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("marking inbound email as processed: %w", err)
 	}
 
-	// 3. Dispatch "email.received" webhook event.
+	// 3. Dispatch "email.inbound" webhook event with full payload.
 	if h.webhookDispatch != nil {
-		webhookPayload := buildInboundWebhookPayload(inbound.ID, inbound.TeamID, inbound.FromAddress, inbound.ToAddresses, inbound.Subject)
-		h.webhookDispatch(ctx, inbound.TeamID, "email.received", webhookPayload)
-		log.Info("dispatched email.received webhook")
+		webhookPayload := buildInboundWebhookPayload(inbound)
+		h.webhookDispatch(ctx, inbound.TeamID, "email.inbound", webhookPayload)
+		log.Info("dispatched email.inbound webhook")
 	}
 
 	log.Info("inbound email processed successfully")
@@ -73,16 +73,28 @@ func (h *InboundHandler) ProcessTask(ctx context.Context, t *asynq.Task) error {
 }
 
 // buildInboundWebhookPayload constructs the webhook payload for an inbound email event.
-func buildInboundWebhookPayload(id, teamID uuid.UUID, from string, to []string, subject *string) map[string]interface{} {
+func buildInboundWebhookPayload(inbound *model.InboundEmail) map[string]interface{} {
 	payload := map[string]interface{}{
-		"inbound_email_id": id.String(),
-		"team_id":          teamID.String(),
-		"from":             from,
-		"to":               to,
+		"inbound_email_id": inbound.ID.String(),
+		"team_id":          inbound.TeamID.String(),
+		"from":             inbound.FromAddress,
+		"to":               inbound.ToAddresses,
 		"timestamp":        time.Now().UTC().Format(time.RFC3339),
 	}
-	if subject != nil {
-		payload["subject"] = *subject
+	if inbound.Subject != nil {
+		payload["subject"] = *inbound.Subject
+	}
+	if inbound.HTMLBody != nil {
+		payload["html_body"] = *inbound.HTMLBody
+	}
+	if inbound.TextBody != nil {
+		payload["text_body"] = *inbound.TextBody
+	}
+	if len(inbound.CcAddresses) > 0 {
+		payload["cc"] = inbound.CcAddresses
+	}
+	if len(inbound.Attachments) > 0 {
+		payload["attachments"] = inbound.Attachments
 	}
 	return payload
 }

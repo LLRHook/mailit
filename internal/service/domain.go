@@ -17,12 +17,10 @@ import (
 	"github.com/mailit-dev/mailit/internal/model"
 	"github.com/mailit-dev/mailit/internal/pkg"
 	"github.com/mailit-dev/mailit/internal/repository/postgres"
+	"github.com/mailit-dev/mailit/internal/worker"
 )
 
 const (
-	// TaskTypeDomainVerify is the asynq task type for verifying domain DNS records.
-	TaskTypeDomainVerify = "domain:verify"
-
 	// dkimKeyBits is the default RSA key size for DKIM signing.
 	dkimKeyBits = 2048
 )
@@ -321,8 +319,8 @@ func (s *domainService) enqueueVerifyTask(domainID, teamID uuid.UUID) {
 		"domain_id": domainID.String(),
 		"team_id":   teamID.String(),
 	})
-	task := asynq.NewTask(TaskTypeDomainVerify, payload)
-	_, _ = s.asynqClient.Enqueue(task, asynq.Queue("default"), asynq.MaxRetry(3))
+	task := asynq.NewTask(worker.TaskDomainVerify, payload)
+	_, _ = s.asynqClient.Enqueue(task, asynq.Queue(worker.QueueDefault), asynq.MaxRetry(3))
 }
 
 // buildDomainResponse converts a domain model and its DNS records to a DTO response.

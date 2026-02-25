@@ -32,12 +32,15 @@ func DefaultConfig() Config {
 // Handlers holds all task handler instances that will be registered with the mux.
 type Handlers struct {
 	EmailSend      *EmailSendHandler
+	EmailBatchSend *BatchEmailSendHandler
 	BroadcastSend  *BroadcastSendHandler
 	DomainVerify   *DomainVerifyHandler
 	Bounce         *BounceHandler
 	Inbound        *InboundHandler
 	Cleanup        *CleanupHandler
-	WebhookDeliver *WebhookDeliverHandler
+	WebhookDeliver   *WebhookDeliverHandler
+	MetricsAggregate *MetricsAggregateHandler
+	ContactImport    *ContactImportHandler
 }
 
 // NewServer creates and configures a new asynq Server.
@@ -79,6 +82,9 @@ func NewMux(h Handlers) *asynq.ServeMux {
 	if h.EmailSend != nil {
 		mux.HandleFunc(TaskEmailSend, h.EmailSend.ProcessTask)
 	}
+	if h.EmailBatchSend != nil {
+		mux.HandleFunc(TaskEmailBatchSend, h.EmailBatchSend.ProcessTask)
+	}
 	if h.BroadcastSend != nil {
 		mux.HandleFunc(TaskBroadcastSend, h.BroadcastSend.ProcessTask)
 	}
@@ -96,6 +102,12 @@ func NewMux(h Handlers) *asynq.ServeMux {
 	}
 	if h.WebhookDeliver != nil {
 		mux.HandleFunc(TaskWebhookDeliver, h.WebhookDeliver.ProcessTask)
+	}
+	if h.MetricsAggregate != nil {
+		mux.HandleFunc(TaskMetricsAggregate, h.MetricsAggregate.ProcessTask)
+	}
+	if h.ContactImport != nil {
+		mux.HandleFunc(TaskContactImport, h.ContactImport.ProcessTask)
 	}
 
 	return mux

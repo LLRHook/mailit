@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/mailit-dev/mailit/internal/dto"
 	"github.com/mailit-dev/mailit/internal/model"
 )
 
@@ -91,6 +92,7 @@ type ContactRepository interface {
 	GetByAudienceAndID(ctx context.Context, audienceID, id uuid.UUID) (*model.Contact, error)
 	GetByAudienceAndEmail(ctx context.Context, audienceID uuid.UUID, email string) (*model.Contact, error)
 	List(ctx context.Context, audienceID uuid.UUID, limit, offset int) ([]model.Contact, int, error)
+	ListBySegmentID(ctx context.Context, segmentID uuid.UUID, limit, offset int) ([]model.Contact, int, error)
 	Update(ctx context.Context, contact *model.Contact) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -194,4 +196,41 @@ type InboundEmailRepository interface {
 type LogRepository interface {
 	Create(ctx context.Context, log *model.Log) error
 	List(ctx context.Context, teamID uuid.UUID, level string, limit, offset int) ([]model.Log, int, error)
+}
+
+// SettingsRepository defines read operations for the settings page.
+type SettingsRepository interface {
+	GetUsageCounts(ctx context.Context, teamID uuid.UUID) (*dto.UsageResponse, error)
+	GetTeamWithMembers(ctx context.Context, teamID uuid.UUID) (*dto.TeamResponse, error)
+	UpdateTeamName(ctx context.Context, teamID uuid.UUID, name string) error
+}
+
+// TeamInvitationRepository defines persistence operations for team invitations.
+type TeamInvitationRepository interface {
+	Create(ctx context.Context, invitation *model.TeamInvitation) error
+	GetByToken(ctx context.Context, token string) (*model.TeamInvitation, error)
+	ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]model.TeamInvitation, error)
+	MarkAccepted(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// ContactImportJobRepository defines persistence operations for contact import jobs.
+type ContactImportJobRepository interface {
+	Create(ctx context.Context, job *model.ContactImportJob) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.ContactImportJob, error)
+	Update(ctx context.Context, job *model.ContactImportJob) error
+}
+
+// TrackingLinkRepository defines persistence operations for email tracking links.
+type TrackingLinkRepository interface {
+	Create(ctx context.Context, link *model.TrackingLink) error
+	CreateBatch(ctx context.Context, links []*model.TrackingLink) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.TrackingLink, error)
+}
+
+// MetricsRepository defines persistence operations for email metrics.
+type MetricsRepository interface {
+	Upsert(ctx context.Context, m *model.EmailMetrics) error
+	ListByTeam(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) ([]model.EmailMetrics, error)
+	AggregateTotals(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) (*model.EmailMetrics, error)
 }

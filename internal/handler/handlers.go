@@ -1,6 +1,10 @@
 package handler
 
-import "github.com/mailit-dev/mailit/internal/service"
+import (
+	"github.com/hibiken/asynq"
+	"github.com/mailit-dev/mailit/internal/repository/postgres"
+	"github.com/mailit-dev/mailit/internal/service"
+)
 
 // Handlers aggregates all HTTP handlers.
 type Handlers struct {
@@ -18,9 +22,18 @@ type Handlers struct {
 	Webhook         *WebhookHandler
 	InboundEmail    *InboundEmailHandler
 	Log             *LogHandler
+	Metrics         *MetricsHandler
+	Settings        *SettingsHandler
+	Tracking        *TrackingHandler
+	ContactImport   *ContactImportHandler
 }
 
-func NewHandlers(svc *service.Services) *Handlers {
+func NewHandlers(
+	svc *service.Services,
+	importJobRepo postgres.ContactImportJobRepository,
+	audienceRepo postgres.AudienceRepository,
+	asynqClient *asynq.Client,
+) *Handlers {
 	return &Handlers{
 		Auth:            NewAuthHandler(svc.Auth),
 		Email:           NewEmailHandler(svc.Email),
@@ -36,5 +49,9 @@ func NewHandlers(svc *service.Services) *Handlers {
 		Webhook:         NewWebhookHandler(svc.Webhook),
 		InboundEmail:    NewInboundEmailHandler(svc.InboundEmail),
 		Log:             NewLogHandler(svc.Log),
+		Metrics:         NewMetricsHandler(svc.Metrics),
+		Settings:        NewSettingsHandler(svc.Settings),
+		Tracking:        NewTrackingHandler(svc.Tracking),
+		ContactImport:   NewContactImportHandler(importJobRepo, audienceRepo, asynqClient),
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,12 +18,13 @@ import (
 // BroadcastSendHandler processes broadcast:send tasks by expanding a broadcast
 // into individual email:send tasks for each contact in the target audience.
 type BroadcastSendHandler struct {
-	broadcastRepo postgres.BroadcastRepository
-	contactRepo   postgres.ContactRepository
-	audienceRepo  postgres.AudienceRepository
-	emailRepo     postgres.EmailRepository
-	asynqClient   *asynq.Client
-	logger        *slog.Logger
+	broadcastRepo       postgres.BroadcastRepository
+	contactRepo         postgres.ContactRepository
+	audienceRepo        postgres.AudienceRepository
+	emailRepo           postgres.EmailRepository
+	templateVersionRepo postgres.TemplateVersionRepository
+	asynqClient         *asynq.Client
+	logger              *slog.Logger
 }
 
 // NewBroadcastSendHandler creates a new BroadcastSendHandler.
@@ -31,16 +33,18 @@ func NewBroadcastSendHandler(
 	contactRepo postgres.ContactRepository,
 	audienceRepo postgres.AudienceRepository,
 	emailRepo postgres.EmailRepository,
+	templateVersionRepo postgres.TemplateVersionRepository,
 	asynqClient *asynq.Client,
 	logger *slog.Logger,
 ) *BroadcastSendHandler {
 	return &BroadcastSendHandler{
-		broadcastRepo: broadcastRepo,
-		contactRepo:   contactRepo,
-		audienceRepo:  audienceRepo,
-		emailRepo:     emailRepo,
-		asynqClient:   asynqClient,
-		logger:        logger,
+		broadcastRepo:       broadcastRepo,
+		contactRepo:         contactRepo,
+		audienceRepo:        audienceRepo,
+		emailRepo:           emailRepo,
+		templateVersionRepo: templateVersionRepo,
+		asynqClient:         asynqClient,
+		logger:              logger,
 	}
 }
 
@@ -75,7 +79,32 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 		return fmt.Errorf("fetching audience %s: %w", broadcast.AudienceID, err)
 	}
 
-	// 3. Update broadcast status to "sending".
+	// 3. If broadcast has a TemplateID, fetch the published template version.
+	var tmplSubject, tmplHTMLBody, tmplTextBody *string
+	if broadcast.TemplateID != nil {
+		version, tmplErr := h.templateVersionRepo.GetPublishedByTemplateID(ctx, *broadcast.TemplateID)
+		if tmplErr != nil {
+			return fmt.Errorf("fetching published template version for %s: %w", broadcast.TemplateID, tmplErr)
+		}
+		tmplSubject = version.Subject
+		tmplHTMLBody = version.HTMLBody
+		tmplTextBody = version.TextBody
+		log.Info("using template for broadcast", "template_id", broadcast.TemplateID, "version", version.Version)
+	}
+
+	// Resolve subject/body: template takes priority over inline fields.
+	resolveStr := func(tmpl, inline *string) *string {
+		if tmpl != nil && *tmpl != "" {
+			return tmpl
+		}
+		return inline
+	}
+
+	baseSubject := resolveStr(tmplSubject, broadcast.Subject)
+	baseHTMLBody := resolveStr(tmplHTMLBody, broadcast.HTMLBody)
+	baseTextBody := resolveStr(tmplTextBody, broadcast.TextBody)
+
+	// 4. Update broadcast status to "sending".
 	broadcast.Status = model.BroadcastStatusSending
 	now := time.Now().UTC()
 	broadcast.SentAt = &now
@@ -84,13 +113,20 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 		return fmt.Errorf("updating broadcast to sending: %w", err)
 	}
 
-	// 4. Fetch all contacts from the audience in pages.
+	// 5. Fetch contacts — from segment if specified, otherwise from audience.
 	const pageSize = 500
 	var totalEnqueued int
 	offset := 0
 
+	listContacts := func(limit, off int) ([]model.Contact, int, error) {
+		if broadcast.SegmentID != nil {
+			return h.contactRepo.ListBySegmentID(ctx, *broadcast.SegmentID, limit, off)
+		}
+		return h.contactRepo.List(ctx, *broadcast.AudienceID, limit, off)
+	}
+
 	for {
-		contacts, total, err := h.contactRepo.List(ctx, *broadcast.AudienceID, pageSize, offset)
+		contacts, total, err := listContacts(pageSize, offset)
 		if err != nil {
 			return fmt.Errorf("listing contacts at offset %d: %w", offset, err)
 		}
@@ -102,7 +138,12 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 				continue
 			}
 
-			// 5. Create an email record for this contact.
+			// 6. Substitute contact variables in subject/body.
+			subject := substituteVars(ptrToString(baseSubject), &contact)
+			htmlBody := substituteVars(ptrToString(baseHTMLBody), &contact)
+			textBody := substituteVars(ptrToString(baseTextBody), &contact)
+
+			// 7. Create an email record for this contact.
 			emailID := uuid.New()
 			email := &model.Email{
 				ID:          emailID,
@@ -110,9 +151,9 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 				DomainID:    nil,
 				FromAddress: ptrToString(broadcast.FromAddress),
 				ToAddresses: []string{contact.Email},
-				Subject:     ptrToString(broadcast.Subject),
-				HTMLBody:    broadcast.HTMLBody,
-				TextBody:    broadcast.TextBody,
+				Subject:     subject,
+				HTMLBody:    strPtrIfNotEmpty(htmlBody),
+				TextBody:    strPtrIfNotEmpty(textBody),
 				Status:      model.EmailStatusQueued,
 				Tags:        []string{"broadcast:" + p.BroadcastID.String()},
 				Headers:     model.JSONMap{},
@@ -126,7 +167,7 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 				continue
 			}
 
-			// 6. Enqueue the email:send task.
+			// 8. Enqueue the email:send task.
 			task, taskErr := NewEmailSendTask(emailID, p.TeamID)
 			if taskErr != nil {
 				log.Error("failed to create email:send task", "email_id", emailID, "error", taskErr)
@@ -147,7 +188,7 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 		}
 	}
 
-	// 7. Update broadcast with recipient count.
+	// 9. Update broadcast with recipient count.
 	broadcast.TotalRecipients = totalEnqueued
 	broadcast.UpdatedAt = time.Now().UTC()
 
@@ -163,4 +204,26 @@ func (h *BroadcastSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) e
 
 	log.Info("broadcast expanded into email tasks", "total_enqueued", totalEnqueued)
 	return nil
+}
+
+// substituteVars replaces {{contact.field}} placeholders with contact values.
+func substituteVars(text string, contact *model.Contact) string {
+	if text == "" {
+		return text
+	}
+	r := strings.NewReplacer(
+		"{{contact.email}}", contact.Email,
+		"{{contact.first_name}}", ptrToString(contact.FirstName),
+		"{{contact.last_name}}", ptrToString(contact.LastName),
+		"{{contact.id}}", contact.ID.String(),
+	)
+	return r.Replace(text)
+}
+
+// strPtrIfNotEmpty returns a pointer to s if it's non-empty, nil otherwise.
+func strPtrIfNotEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

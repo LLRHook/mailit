@@ -82,7 +82,7 @@ func TestInboundHandler_ProcessTask_Success(t *testing.T) {
 	err := h.ProcessTask(context.Background(), task)
 	assert.NoError(t, err)
 	assert.True(t, webhookCalled)
-	assert.Equal(t, "email.received", capturedEventType)
+	assert.Equal(t, "email.inbound", capturedEventType)
 	inboundRepo.AssertExpectations(t)
 }
 
@@ -171,22 +171,47 @@ func TestBuildInboundWebhookPayload(t *testing.T) {
 	id := uuid.New()
 	teamID := uuid.New()
 	subject := "Test Subject"
+	htmlBody := "<p>Hello</p>"
 
-	payload := buildInboundWebhookPayload(id, teamID, "from@example.com", []string{"to@example.com"}, &subject)
+	inbound := &model.InboundEmail{
+		ID:          id,
+		TeamID:      teamID,
+		FromAddress: "from@example.com",
+		ToAddresses: []string{"to@example.com"},
+		Subject:     &subject,
+		HTMLBody:    &htmlBody,
+		Attachments: model.JSONArray{
+			map[string]interface{}{"filename": "file.pdf", "size": 1024},
+		},
+	}
+
+	payload := buildInboundWebhookPayload(inbound)
 
 	assert.Equal(t, id.String(), payload["inbound_email_id"])
 	assert.Equal(t, teamID.String(), payload["team_id"])
 	assert.Equal(t, "from@example.com", payload["from"])
 	assert.Equal(t, "Test Subject", payload["subject"])
+	assert.Equal(t, "<p>Hello</p>", payload["html_body"])
 	assert.NotEmpty(t, payload["timestamp"])
+	assert.NotNil(t, payload["attachments"])
 }
 
 func TestBuildInboundWebhookPayload_NilSubject(t *testing.T) {
 	id := uuid.New()
 	teamID := uuid.New()
 
-	payload := buildInboundWebhookPayload(id, teamID, "from@example.com", []string{"to@example.com"}, nil)
+	inbound := &model.InboundEmail{
+		ID:          id,
+		TeamID:      teamID,
+		FromAddress: "from@example.com",
+		ToAddresses: []string{"to@example.com"},
+		Attachments: model.JSONArray{},
+	}
+
+	payload := buildInboundWebhookPayload(inbound)
 
 	_, hasSubject := payload["subject"]
 	assert.False(t, hasSubject)
+	_, hasHTML := payload["html_body"]
+	assert.False(t, hasHTML)
 }

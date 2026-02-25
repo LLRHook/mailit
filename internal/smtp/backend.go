@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
+	"mime/multipart"
 	"net/mail"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/mailit-dev/mailit/internal/model"
+	"github.com/mailit-dev/mailit/internal/service"
 	"github.com/mailit-dev/mailit/internal/worker"
 )
 
@@ -31,27 +34,30 @@ type InboundEmailStore interface {
 
 // Backend implements the go-smtp Backend interface for receiving inbound emails.
 type Backend struct {
-	domainLookup     DomainLookup
-	inboundEmailRepo InboundEmailStore
-	asynqClient      *asynq.Client
-	maxMessageBytes  int64
-	logger           *slog.Logger
+	domainLookup      DomainLookup
+	inboundEmailRepo  InboundEmailStore
+	attachmentStorage service.AttachmentStorage
+	asynqClient       *asynq.Client
+	maxMessageBytes   int64
+	logger            *slog.Logger
 }
 
 // NewBackend creates a new inbound SMTP backend.
 func NewBackend(
 	domainLookup DomainLookup,
 	inboundEmailRepo InboundEmailStore,
+	attachmentStorage service.AttachmentStorage,
 	asynqClient *asynq.Client,
 	maxMessageBytes int64,
 	logger *slog.Logger,
 ) *Backend {
 	return &Backend{
-		domainLookup:     domainLookup,
-		inboundEmailRepo: inboundEmailRepo,
-		asynqClient:      asynqClient,
-		maxMessageBytes:  maxMessageBytes,
-		logger:           logger,
+		domainLookup:      domainLookup,
+		inboundEmailRepo:  inboundEmailRepo,
+		attachmentStorage: attachmentStorage,
+		asynqClient:       asynqClient,
+		maxMessageBytes:   maxMessageBytes,
+		logger:            logger,
 	}
 }
 
@@ -195,6 +201,28 @@ func (s *Session) Data(r io.Reader) error {
 		}
 	}
 
+	// Parse MIME body to extract text/html parts and attachments.
+	var htmlBody, textBody string
+	attachments := make(model.JSONArray, 0)
+
+	if parseErr == nil {
+		contentType := msg.Header.Get("Content-Type")
+		mediaType, params, mtErr := mime.ParseMediaType(contentType)
+		if mtErr == nil && strings.HasPrefix(mediaType, "multipart/") {
+			htmlBody, textBody, attachments = s.parseMIMEParts(msg.Body, params["boundary"], s.domain.TeamID)
+		} else {
+			// Single-part message: read as text or html.
+			partBody, readErr := io.ReadAll(msg.Body)
+			if readErr == nil {
+				if strings.HasPrefix(mediaType, "text/html") {
+					htmlBody = string(partBody)
+				} else {
+					textBody = string(partBody)
+				}
+			}
+		}
+	}
+
 	rawMessage := string(body)
 	now := time.Now().UTC()
 	domainID := s.domain.ID
@@ -207,9 +235,11 @@ func (s *Session) Data(r io.Reader) error {
 		ToAddresses: toAddresses,
 		CcAddresses: ccAddresses,
 		Subject:     ptrString(subject),
+		HTMLBody:    ptrString(htmlBody),
+		TextBody:    ptrString(textBody),
 		RawMessage:  &rawMessage,
 		Headers:     headers,
-		Attachments: make(model.JSONArray, 0),
+		Attachments: attachments,
 		Processed:   false,
 		CreatedAt:   now,
 	}
@@ -270,6 +300,93 @@ func (s *Session) Reset() {
 // Logout is called when the SMTP session ends.
 func (s *Session) Logout() error {
 	return nil
+}
+
+// parseMIMEParts walks a multipart message and extracts text/html bodies and attachments.
+func (s *Session) parseMIMEParts(body io.Reader, boundary string, teamID uuid.UUID) (htmlBody, textBody string, attachments model.JSONArray) {
+	attachments = make(model.JSONArray, 0)
+	mr := multipart.NewReader(body, boundary)
+
+	for {
+		part, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+
+		contentType := part.Header.Get("Content-Type")
+		mediaType, params, _ := mime.ParseMediaType(contentType)
+		disposition, dparams, _ := mime.ParseMediaType(part.Header.Get("Content-Disposition"))
+
+		// Recurse into nested multipart (e.g. multipart/alternative inside multipart/mixed).
+		if strings.HasPrefix(mediaType, "multipart/") {
+			nestedBoundary := params["boundary"]
+			if nestedBoundary != "" {
+				h, t, a := s.parseMIMEParts(part, nestedBoundary, teamID)
+				if htmlBody == "" {
+					htmlBody = h
+				}
+				if textBody == "" {
+					textBody = t
+				}
+				attachments = append(attachments, a...)
+			}
+			continue
+		}
+
+		// If this part has an attachment or inline disposition with a filename, treat as attachment.
+		filename := dparams["filename"]
+		if filename == "" {
+			filename = params["name"]
+		}
+
+		if disposition == "attachment" || (filename != "" && disposition != "") {
+			partContent, readErr := io.ReadAll(part)
+			if readErr != nil {
+				s.logger.Warn("inbound SMTP: failed to read attachment", "filename", filename, "error", readErr)
+				continue
+			}
+
+			// Store the attachment if storage is available.
+			var storedPath string
+			if s.backend.attachmentStorage != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				path, storeErr := s.backend.attachmentStorage.Store(ctx, teamID, filename, bytes.NewReader(partContent))
+				cancel()
+				if storeErr != nil {
+					s.logger.Error("inbound SMTP: failed to store attachment", "filename", filename, "error", storeErr)
+				} else {
+					storedPath = path
+				}
+			}
+
+			attachments = append(attachments, map[string]interface{}{
+				"filename":     filename,
+				"content_type": mediaType,
+				"size":         len(partContent),
+				"path":         storedPath,
+			})
+			continue
+		}
+
+		// Otherwise this is a text or html body part.
+		partContent, readErr := io.ReadAll(part)
+		if readErr != nil {
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(mediaType, "text/html"):
+			if htmlBody == "" {
+				htmlBody = string(partContent)
+			}
+		case strings.HasPrefix(mediaType, "text/plain"):
+			if textBody == "" {
+				textBody = string(partContent)
+			}
+		}
+	}
+
+	return htmlBody, textBody, attachments
 }
 
 // extractDomain returns the domain part of an email address.

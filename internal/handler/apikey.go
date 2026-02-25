@@ -39,7 +39,7 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Create(r.Context(), auth.TeamID, &req)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusCreated, resp)
@@ -55,7 +55,7 @@ func (h *APIKeyHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.List(r.Context(), auth.TeamID)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)
@@ -76,7 +76,7 @@ func (h *APIKeyHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.Delete(r.Context(), auth.TeamID, apiKeyID); err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, map[string]bool{"deleted": true})

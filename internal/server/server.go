@@ -58,11 +58,21 @@ func New(cfg Config) *http.Server {
 	sendLimitMw := middleware.SendRateLimit(cfg.Redis, cfg.RateLimitCfg)
 	batchLimitMw := middleware.BatchRateLimit(cfg.Redis, cfg.RateLimitCfg)
 
+	// IP-based rate limits for public auth endpoints.
+	registerLimitMw := middleware.IPRateLimit(cfg.Redis, 5, time.Minute)
+	loginLimitMw := middleware.IPRateLimit(cfg.Redis, 10, time.Minute)
+
 	h := cfg.Handlers
 
-	// Public routes (auth)
-	r.Post("/auth/register", h.Auth.Register)
-	r.Post("/auth/login", h.Auth.Login)
+	// Public routes (auth) with stricter IP-based rate limits.
+	r.With(registerLimitMw).Post("/auth/register", h.Auth.Register)
+	r.With(loginLimitMw).Post("/auth/login", h.Auth.Login)
+	r.With(loginLimitMw).Post("/auth/accept-invite", h.Settings.AcceptInvite)
+
+	// Public tracking routes (no auth)
+	r.Get("/track/open/{id}", h.Tracking.TrackOpen)
+	r.Get("/track/click/{id}", h.Tracking.TrackClick)
+	r.Post("/unsubscribe", h.Tracking.Unsubscribe)
 
 	// Authenticated API routes
 	r.Group(func(r chi.Router) {
@@ -99,6 +109,9 @@ func New(cfg Config) *http.Server {
 		// Contacts
 		r.Post("/audiences/{audienceId}/contacts", h.Contact.Create)
 		r.Get("/audiences/{audienceId}/contacts", h.Contact.List)
+		r.Get("/audiences/{audienceId}/contacts/export", h.Contact.Export)
+		r.Post("/audiences/{audienceId}/contacts/import", h.ContactImport.Import)
+		r.Get("/audiences/{audienceId}/contacts/import/{jobId}", h.ContactImport.GetImportStatus)
 		r.Get("/audiences/{audienceId}/contacts/{contactId}", h.Contact.Get)
 		r.Patch("/audiences/{audienceId}/contacts/{contactId}", h.Contact.Update)
 		r.Delete("/audiences/{audienceId}/contacts/{contactId}", h.Contact.Delete)
@@ -150,6 +163,16 @@ func New(cfg Config) *http.Server {
 
 		// Logs
 		r.Get("/logs", h.Log.List)
+
+		// Metrics
+		r.Get("/metrics", h.Metrics.Get)
+
+		// Settings
+		r.Get("/settings/usage", h.Settings.GetUsage)
+		r.Get("/settings/team", h.Settings.GetTeam)
+		r.Patch("/settings/team", h.Settings.UpdateTeam)
+		r.Get("/settings/smtp", h.Settings.GetSMTP)
+		r.Post("/settings/team/invite", h.Settings.InviteMember)
 	})
 
 	return &http.Server{

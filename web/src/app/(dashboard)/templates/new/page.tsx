@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +30,10 @@ export default function NewTemplatePage() {
       text: string;
     }) => api.post("/templates", payload).then((res) => res.data),
     onSuccess: (data) => {
+      toast.success("Template created");
       router.push(`/templates/${data.data.id}`);
     },
+    onError: () => toast.error("Failed to create template"),
   });
 
   const isValid = name && subject && (html || text);

@@ -29,7 +29,7 @@ func (h *LogHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.List(r.Context(), auth.TeamID, level, &params)
 	if err != nil {
-		pkg.Error(w, http.StatusInternalServerError, err.Error())
+		pkg.HandleError(w, err)
 		return
 	}
 	pkg.JSON(w, http.StatusOK, resp)

@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3Icon,
   UsersIcon,
@@ -8,11 +9,30 @@ import {
   PuzzleIcon,
   PlusIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/shared/page-header";
 import { CopyButton } from "@/components/shared/copy-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -25,7 +45,7 @@ function UsageTab() {
     queryFn: () => api.get("/settings/usage").then((res) => res.data),
   });
 
-  const usage = data?.data ?? {
+  const usage = data ?? {
     emails_sent_today: 0,
     emails_sent_month: 0,
     domains: 0,
@@ -76,13 +96,38 @@ interface TeamMember {
   role: string;
 }
 
+interface TeamData {
+  id: string;
+  name: string;
+  slug: string;
+  members: TeamMember[];
+}
+
 function TeamTab() {
-  const { data } = useQuery({
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+
+  const { data } = useQuery<TeamData>({
     queryKey: ["settings-team"],
     queryFn: () => api.get("/settings/team").then((res) => res.data),
   });
 
-  const members: TeamMember[] = data?.data ?? [];
+  const members: TeamMember[] = data?.members ?? [];
+
+  const inviteMutation = useMutation({
+    mutationFn: (payload: { email: string; role: string }) =>
+      api.post("/settings/team/invite", payload).then((res) => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings-team"] });
+      setDialogOpen(false);
+      setInviteEmail("");
+      setInviteRole("member");
+      toast.success("Invitation sent");
+    },
+    onError: () => toast.error("Failed to send invitation"),
+  });
 
   const roleColor: Record<string, string> = {
     owner: "bg-primary/15 text-primary border-primary/20",
@@ -94,10 +139,59 @@ function TeamTab() {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Team Members</CardTitle>
-        <Button size="sm">
-          <PlusIcon className="mr-2 size-4" />
-          Invite Member
-        </Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <PlusIcon className="mr-2 size-4" />
+              Invite Member
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Invite Team Member</DialogTitle>
+              <DialogDescription>
+                Send an invitation to join your team.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="invite-email">Email</Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="colleague@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() =>
+                  inviteMutation.mutate({
+                    email: inviteEmail,
+                    role: inviteRole,
+                  })
+                }
+                disabled={!inviteEmail || inviteMutation.isPending}
+              >
+                {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent>
         {members.length === 0 ? (
@@ -145,18 +239,31 @@ function TeamTab() {
 
 // --- SMTP Tab ---
 
+interface SMTPConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  encryption: string;
+}
+
 function SmtpTab() {
-  const smtpConfig = {
-    host: "smtp.mailit.local",
-    port: "587",
-    username: "mailit",
-    password: "your-api-key",
+  const { data } = useQuery<SMTPConfig>({
+    queryKey: ["settings-smtp"],
+    queryFn: () => api.get("/settings/smtp").then((res) => res.data),
+  });
+
+  const smtpConfig = data ?? {
+    host: "...",
+    port: 587,
+    username: "...",
+    password: "...",
     encryption: "STARTTLS",
   };
 
   const fields = [
     { label: "Host", value: smtpConfig.host },
-    { label: "Port", value: smtpConfig.port },
+    { label: "Port", value: String(smtpConfig.port) },
     { label: "Username", value: smtpConfig.username },
     { label: "Password", value: smtpConfig.password },
     { label: "Encryption", value: smtpConfig.encryption },

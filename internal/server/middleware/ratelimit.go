@@ -74,6 +74,52 @@ func RateLimit(rdb *redis.Client, cfg RateLimitConfig) func(http.Handler) http.H
 	}
 }
 
+// IPRateLimit creates an IP-based rate limiter for public endpoints (e.g. auth).
+// rps is the maximum requests per second allowed per IP address.
+func IPRateLimit(rdb *redis.Client, rps int, window time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if rdb == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			ip := r.RemoteAddr
+			if fwd := r.Header.Get("X-Real-IP"); fwd != "" {
+				ip = fwd
+			}
+
+			if window == 0 {
+				window = time.Minute
+			}
+
+			key := fmt.Sprintf("ratelimit:ip:%s:%s:%d", r.URL.Path, ip, time.Now().Unix()/int64(window.Seconds()))
+
+			pipe := rdb.Pipeline()
+			incr := pipe.Incr(r.Context(), key)
+			pipe.Expire(r.Context(), key, window*2)
+			_, err := pipe.Exec(r.Context())
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			count := incr.Val()
+
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(rps))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(max(0, rps-int(count))))
+
+			if int(count) > rps {
+				w.Header().Set("Retry-After", strconv.Itoa(int(window.Seconds())))
+				pkg.Error(w, http.StatusTooManyRequests, "rate limit exceeded")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // SendRateLimit applies a stricter rate limit for email sending endpoints.
 func SendRateLimit(rdb *redis.Client, cfg RateLimitConfig) func(http.Handler) http.Handler {
 	sendCfg := cfg

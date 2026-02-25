@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/mailit-dev/mailit/internal/dto"
 	"github.com/mailit-dev/mailit/internal/model"
 )
 
@@ -265,6 +266,10 @@ func (m *MockContactRepository) GetByAudienceAndEmail(ctx context.Context, audie
 }
 func (m *MockContactRepository) List(ctx context.Context, audienceID uuid.UUID, limit, offset int) ([]model.Contact, int, error) {
 	args := m.Called(ctx, audienceID, limit, offset)
+	return args.Get(0).([]model.Contact), args.Int(1), args.Error(2)
+}
+func (m *MockContactRepository) ListBySegmentID(ctx context.Context, segmentID uuid.UUID, limit, offset int) ([]model.Contact, int, error) {
+	args := m.Called(ctx, segmentID, limit, offset)
 	return args.Get(0).([]model.Contact), args.Int(1), args.Error(2)
 }
 func (m *MockContactRepository) Update(ctx context.Context, contact *model.Contact) error {
@@ -582,4 +587,112 @@ func (m *MockLogRepository) Create(ctx context.Context, log *model.Log) error {
 func (m *MockLogRepository) List(ctx context.Context, teamID uuid.UUID, level string, limit, offset int) ([]model.Log, int, error) {
 	args := m.Called(ctx, teamID, level, limit, offset)
 	return args.Get(0).([]model.Log), args.Int(1), args.Error(2)
+}
+
+// --- MetricsRepository ---
+
+type MockMetricsRepository struct{ mock.Mock }
+
+func (m *MockMetricsRepository) Upsert(ctx context.Context, metrics *model.EmailMetrics) error {
+	return m.Called(ctx, metrics).Error(0)
+}
+func (m *MockMetricsRepository) ListByTeam(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) ([]model.EmailMetrics, error) {
+	args := m.Called(ctx, teamID, periodType, from, to)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.EmailMetrics), args.Error(1)
+}
+func (m *MockMetricsRepository) AggregateTotals(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) (*model.EmailMetrics, error) {
+	args := m.Called(ctx, teamID, periodType, from, to)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.EmailMetrics), args.Error(1)
+}
+
+// --- SettingsRepository ---
+
+type MockSettingsRepository struct{ mock.Mock }
+
+func (m *MockSettingsRepository) GetUsageCounts(ctx context.Context, teamID uuid.UUID) (*dto.UsageResponse, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UsageResponse), args.Error(1)
+}
+func (m *MockSettingsRepository) GetTeamWithMembers(ctx context.Context, teamID uuid.UUID) (*dto.TeamResponse, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+func (m *MockSettingsRepository) UpdateTeamName(ctx context.Context, teamID uuid.UUID, name string) error {
+	return m.Called(ctx, teamID, name).Error(0)
+}
+
+// --- TeamInvitationRepository ---
+
+type MockTeamInvitationRepository struct{ mock.Mock }
+
+func (m *MockTeamInvitationRepository) Create(ctx context.Context, invitation *model.TeamInvitation) error {
+	return m.Called(ctx, invitation).Error(0)
+}
+func (m *MockTeamInvitationRepository) GetByToken(ctx context.Context, token string) (*model.TeamInvitation, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.TeamInvitation), args.Error(1)
+}
+func (m *MockTeamInvitationRepository) ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]model.TeamInvitation, error) {
+	args := m.Called(ctx, teamID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.TeamInvitation), args.Error(1)
+}
+func (m *MockTeamInvitationRepository) MarkAccepted(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockTeamInvitationRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+
+// --- ContactImportJobRepository ---
+
+type MockContactImportJobRepository struct{ mock.Mock }
+
+func (m *MockContactImportJobRepository) Create(ctx context.Context, job *model.ContactImportJob) error {
+	return m.Called(ctx, job).Error(0)
+}
+func (m *MockContactImportJobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.ContactImportJob, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ContactImportJob), args.Error(1)
+}
+func (m *MockContactImportJobRepository) Update(ctx context.Context, job *model.ContactImportJob) error {
+	return m.Called(ctx, job).Error(0)
+}
+
+// --- TrackingLinkRepository ---
+
+type MockTrackingLinkRepository struct{ mock.Mock }
+
+func (m *MockTrackingLinkRepository) Create(ctx context.Context, link *model.TrackingLink) error {
+	return m.Called(ctx, link).Error(0)
+}
+func (m *MockTrackingLinkRepository) CreateBatch(ctx context.Context, links []*model.TrackingLink) error {
+	return m.Called(ctx, links).Error(0)
+}
+func (m *MockTrackingLinkRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.TrackingLink, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.TrackingLink), args.Error(1)
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/mailit-dev/mailit/internal/repository/postgres"
 )
 
+
 // Task type constant for webhook delivery (mirrors worker.TaskWebhookDeliver).
 const taskWebhookDeliver = "webhook:deliver"
 

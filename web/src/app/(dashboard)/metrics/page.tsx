@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   MailIcon,
   SendIcon,
   EyeIcon,
   AlertTriangleIcon,
+  BarChart3Icon,
 } from "lucide-react";
 import {
   Area,
@@ -15,9 +18,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import api from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ChartContainer,
   ChartTooltip,
@@ -25,25 +36,37 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-const emailsSentData = [
-  { date: "Mon", sent: 120 },
-  { date: "Tue", sent: 180 },
-  { date: "Wed", sent: 150 },
-  { date: "Thu", sent: 210 },
-  { date: "Fri", sent: 190 },
-  { date: "Sat", sent: 80 },
-  { date: "Sun", sent: 60 },
-];
+interface MetricsDataPoint {
+  date: string;
+  sent: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  opened: number;
+  clicked: number;
+  complained: number;
+}
 
-const deliveryBreakdownData = [
-  { date: "Mon", delivered: 115, bounced: 3, failed: 2 },
-  { date: "Tue", delivered: 170, bounced: 5, failed: 5 },
-  { date: "Wed", delivered: 142, bounced: 4, failed: 4 },
-  { date: "Thu", delivered: 200, bounced: 6, failed: 4 },
-  { date: "Fri", delivered: 182, bounced: 4, failed: 4 },
-  { date: "Sat", delivered: 76, bounced: 2, failed: 2 },
-  { date: "Sun", delivered: 56, bounced: 2, failed: 2 },
-];
+interface MetricsTotals {
+  sent: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  opened: number;
+  clicked: number;
+  complained: number;
+  delivery_rate: number;
+  open_rate: number;
+  bounce_rate: number;
+}
+
+interface MetricsResponse {
+  period: string;
+  from: string;
+  to: string;
+  totals: MetricsTotals;
+  data: MetricsDataPoint[];
+}
 
 const sentChartConfig: ChartConfig = {
   sent: {
@@ -68,115 +91,146 @@ const deliveryChartConfig: ChartConfig = {
 };
 
 export default function MetricsPage() {
-  const totalSent = emailsSentData.reduce((sum, d) => sum + d.sent, 0);
-  const totalDelivered = deliveryBreakdownData.reduce(
-    (sum, d) => sum + d.delivered,
-    0
-  );
-  const totalBounced = deliveryBreakdownData.reduce(
-    (sum, d) => sum + d.bounced,
-    0
-  );
-  const deliveryRate =
-    totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) : "0";
-  const bounceRate =
-    totalSent > 0 ? ((totalBounced / totalSent) * 100).toFixed(1) : "0";
+  const [period, setPeriod] = useState("7d");
+
+  const { data: metricsData, isLoading } = useQuery<MetricsResponse>({
+    queryKey: ["metrics", period],
+    queryFn: () =>
+      api.get(`/metrics?period=${period}`).then((res) => res.data),
+  });
+
+  const totals = metricsData?.totals;
+  const chartData = metricsData?.data ?? [];
+  const hasData = chartData.length > 0 && (totals?.sent ?? 0) > 0;
+
+  const periodLabel =
+    period === "24h"
+      ? "Last 24 Hours"
+      : period === "30d"
+        ? "Last 30 Days"
+        : "Last 7 Days";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Metrics"
         description="Monitor your email performance"
-      />
+      >
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="24h">Last 24 Hours</SelectItem>
+            <SelectItem value="7d">Last 7 Days</SelectItem>
+            <SelectItem value="30d">Last 30 Days</SelectItem>
+          </SelectContent>
+        </Select>
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Emails Sent (24h)"
-          value={210}
+          title="Emails Sent"
+          value={isLoading ? "..." : (totals?.sent ?? 0)}
           icon={MailIcon}
-          change="+12%"
-          trend="up"
         />
         <StatCard
           title="Delivery Rate"
-          value={`${deliveryRate}%`}
+          value={
+            isLoading ? "..." : `${(totals?.delivery_rate ?? 0).toFixed(1)}%`
+          }
           icon={SendIcon}
-          change="+0.5%"
-          trend="up"
         />
         <StatCard
           title="Open Rate"
-          value="34.2%"
+          value={
+            isLoading ? "..." : `${(totals?.open_rate ?? 0).toFixed(1)}%`
+          }
           icon={EyeIcon}
-          change="+2.1%"
-          trend="up"
         />
         <StatCard
           title="Bounce Rate"
-          value={`${bounceRate}%`}
+          value={
+            isLoading ? "..." : `${(totals?.bounce_rate ?? 0).toFixed(1)}%`
+          }
           icon={AlertTriangleIcon}
-          change="-0.3%"
-          trend="down"
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Emails Sent (Last 7 Days)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={sentChartConfig} className="h-[300px] w-full">
-            <AreaChart data={emailsSentData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="date" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Area
-                type="monotone"
-                dataKey="sent"
-                stroke="var(--color-sent)"
-                fill="var(--color-sent)"
-                fillOpacity={0.15}
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      {hasData ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Emails Sent ({periodLabel})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={sentChartConfig}
+                className="h-[300px] w-full"
+              >
+                <AreaChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area
+                    type="monotone"
+                    dataKey="sent"
+                    stroke="var(--color-sent)"
+                    fill="var(--color-sent)"
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery Breakdown (Last 7 Days)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer
-            config={deliveryChartConfig}
-            className="h-[300px] w-full"
-          >
-            <BarChart data={deliveryBreakdownData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="date" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar
-                dataKey="delivered"
-                fill="var(--color-delivered)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="bounced"
-                fill="var(--color-bounced)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="failed"
-                fill="var(--color-failed)"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Delivery Breakdown ({periodLabel})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={deliveryChartConfig}
+                className="h-[300px] w-full"
+              >
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar
+                    dataKey="delivered"
+                    fill="var(--color-delivered)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="bounced"
+                    fill="var(--color-bounced)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="failed"
+                    fill="var(--color-failed)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <BarChart3Icon className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-semibold">No metrics yet</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Metrics will appear here once you start sending emails.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

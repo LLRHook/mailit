@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -10,6 +13,10 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, description, actionLabel, onAction, children }: PageHeaderProps) {
+  useEffect(() => {
+    document.title = `${title} — MailIt`;
+  }, [title]);
+
   return (
     <div className="flex items-center justify-between pb-6">
       <div>

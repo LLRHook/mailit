@@ -80,6 +80,10 @@ func (m *mockContactRepo) List(ctx context.Context, audienceID uuid.UUID, limit,
 func (m *mockContactRepo) Update(ctx context.Context, contact *model.Contact) error {
 	return m.Called(ctx, contact).Error(0)
 }
+func (m *mockContactRepo) ListBySegmentID(ctx context.Context, segmentID uuid.UUID, limit, offset int) ([]model.Contact, int, error) {
+	args := m.Called(ctx, segmentID, limit, offset)
+	return args.Get(0).([]model.Contact), args.Int(1), args.Error(2)
+}
 func (m *mockContactRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
@@ -119,12 +123,13 @@ func TestBroadcastSendHandler_ProcessTask_NotQueued(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	h := &BroadcastSendHandler{
-		broadcastRepo: broadcastRepo,
-		contactRepo:   contactRepo,
-		audienceRepo:  audienceRepo,
-		emailRepo:     emailRepo,
-		asynqClient:   nil,
-		logger:        logger,
+		broadcastRepo:       broadcastRepo,
+		contactRepo:         contactRepo,
+		audienceRepo:        audienceRepo,
+		emailRepo:           emailRepo,
+		templateVersionRepo: nil,
+		asynqClient:         nil,
+		logger:              logger,
 	}
 
 	broadcastID := uuid.New()
@@ -154,12 +159,13 @@ func TestBroadcastSendHandler_ProcessTask_NoAudience(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	h := &BroadcastSendHandler{
-		broadcastRepo: broadcastRepo,
-		contactRepo:   contactRepo,
-		audienceRepo:  audienceRepo,
-		emailRepo:     emailRepo,
-		asynqClient:   nil,
-		logger:        logger,
+		broadcastRepo:       broadcastRepo,
+		contactRepo:         contactRepo,
+		audienceRepo:        audienceRepo,
+		emailRepo:           emailRepo,
+		templateVersionRepo: nil,
+		asynqClient:         nil,
+		logger:              logger,
 	}
 
 	broadcastID := uuid.New()
@@ -190,12 +196,13 @@ func TestBroadcastSendHandler_ProcessTask_InvalidPayload(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	h := &BroadcastSendHandler{
-		broadcastRepo: broadcastRepo,
-		contactRepo:   contactRepo,
-		audienceRepo:  audienceRepo,
-		emailRepo:     emailRepo,
-		asynqClient:   nil,
-		logger:        logger,
+		broadcastRepo:       broadcastRepo,
+		contactRepo:         contactRepo,
+		audienceRepo:        audienceRepo,
+		emailRepo:           emailRepo,
+		templateVersionRepo: nil,
+		asynqClient:         nil,
+		logger:              logger,
 	}
 
 	task := asynq.NewTask(TaskBroadcastSend, []byte("bad json"))
@@ -213,12 +220,13 @@ func TestBroadcastSendHandler_ProcessTask_BroadcastNotFound(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	h := &BroadcastSendHandler{
-		broadcastRepo: broadcastRepo,
-		contactRepo:   contactRepo,
-		audienceRepo:  audienceRepo,
-		emailRepo:     emailRepo,
-		asynqClient:   nil,
-		logger:        logger,
+		broadcastRepo:       broadcastRepo,
+		contactRepo:         contactRepo,
+		audienceRepo:        audienceRepo,
+		emailRepo:           emailRepo,
+		templateVersionRepo: nil,
+		asynqClient:         nil,
+		logger:              logger,
 	}
 
 	broadcastID := uuid.New()

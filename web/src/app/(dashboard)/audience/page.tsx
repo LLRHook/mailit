@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -9,8 +9,12 @@ import {
   TagIcon,
   FilterIcon,
   BookmarkIcon,
+  UploadIcon,
+  DownloadIcon,
+  Loader2Icon,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,12 +78,28 @@ interface Topic {
   created_at: string;
 }
 
+interface ImportJob {
+  id: string;
+  status: string;
+  total_rows: number;
+  processed_rows: number;
+  created_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
+  failed_rows: number;
+  error?: string;
+}
+
 // --- Contacts Tab ---
 
 function ContactsTab() {
   const queryClient = useQueryClient();
   const [audienceId, setAudienceId] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importJob, setImportJob] = useState<ImportJob | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -119,8 +139,87 @@ function ContactsTab() {
       setEmail("");
       setFirstName("");
       setLastName("");
+      toast.success("Contact added");
     },
+    onError: () => toast.error("Failed to add contact"),
   });
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return api
+        .post(`/audiences/${audienceId}/contacts/import`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        })
+        .then((res) => res.data);
+    },
+    onSuccess: (data) => {
+      const job = data.data as ImportJob;
+      setImportJob(job);
+      toast.success("Import started");
+    },
+    onError: () => toast.error("Failed to start import"),
+  });
+
+  const pollImportStatus = useCallback(
+    (jobId: string) => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await api.get(
+            `/audiences/${audienceId}/contacts/import/${jobId}`
+          );
+          const job = res.data.data as ImportJob;
+          setImportJob(job);
+          if (job.status === "completed" || job.status === "failed") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            queryClient.invalidateQueries({
+              queryKey: ["contacts", audienceId],
+            });
+          }
+        } catch {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      }, 2000);
+    },
+    [audienceId, queryClient]
+  );
+
+  useEffect(() => {
+    if (importJob && (importJob.status === "pending" || importJob.status === "processing")) {
+      pollImportStatus(importJob.id);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [importJob?.id, importJob?.status, pollImportStatus]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    importMutation.mutate(file);
+    e.target.value = "";
+  };
+
+  const handleExport = () => {
+    api
+      .get(`/audiences/${audienceId}/contacts/export`, {
+        responseType: "blob",
+      })
+      .then((res) => {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `contacts-${audienceId}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success("Export downloaded");
+      })
+      .catch(() => toast.error("Failed to export contacts"));
+  };
 
   const contactColumns: ColumnDef<Contact>[] = [
     {
@@ -190,13 +289,159 @@ function ContactsTab() {
           </SelectContent>
         </Select>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={!audienceId}>
-              <PlusIcon className="mr-2 size-4" />
-              Add Contact
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={!audienceId}
+            onClick={handleExport}
+          >
+            <DownloadIcon className="mr-2 size-4" />
+            Export
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+          <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" disabled={!audienceId}>
+                <UploadIcon className="mr-2 size-4" />
+                Import CSV
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Import Contacts</DialogTitle>
+                <DialogDescription>
+                  Upload a CSV file with columns: email (required), first_name,
+                  last_name. Duplicate emails will be updated.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                {!importJob || importJob.status === "completed" || importJob.status === "failed" ? (
+                  <div className="flex flex-col items-center gap-4 py-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={importMutation.isPending}
+                    >
+                      {importMutation.isPending ? (
+                        <>
+                          <Loader2Icon className="mr-2 size-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <UploadIcon className="mr-2 size-4" />
+                          Choose CSV File
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {importJob && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Status</span>
+                      <span className="capitalize font-medium">
+                        {importJob.status === "processing" && (
+                          <Loader2Icon className="mr-1 inline size-3 animate-spin" />
+                        )}
+                        {importJob.status}
+                      </span>
+                    </div>
+
+                    {importJob.total_rows > 0 && (
+                      <>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-teal-500 transition-all duration-300"
+                            style={{
+                              width: `${Math.round(
+                                (importJob.processed_rows /
+                                  importJob.total_rows) *
+                                  100
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground text-center">
+                          {importJob.processed_rows} / {importJob.total_rows}{" "}
+                          rows processed
+                        </div>
+                      </>
+                    )}
+
+                    {(importJob.status === "completed" ||
+                      importJob.status === "failed") && (
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between rounded bg-muted/50 px-3 py-1.5">
+                          <span className="text-muted-foreground">Created</span>
+                          <span className="font-medium text-emerald-400">
+                            {importJob.created_rows}
+                          </span>
+                        </div>
+                        <div className="flex justify-between rounded bg-muted/50 px-3 py-1.5">
+                          <span className="text-muted-foreground">Updated</span>
+                          <span className="font-medium text-blue-400">
+                            {importJob.updated_rows}
+                          </span>
+                        </div>
+                        <div className="flex justify-between rounded bg-muted/50 px-3 py-1.5">
+                          <span className="text-muted-foreground">Skipped</span>
+                          <span className="font-medium">
+                            {importJob.skipped_rows}
+                          </span>
+                        </div>
+                        <div className="flex justify-between rounded bg-muted/50 px-3 py-1.5">
+                          <span className="text-muted-foreground">Failed</span>
+                          <span className="font-medium text-red-400">
+                            {importJob.failed_rows}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {importJob.error && (
+                      <p className="text-sm text-red-400">{importJob.error}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setImportDialogOpen(false);
+                    if (
+                      importJob?.status === "completed" ||
+                      importJob?.status === "failed"
+                    ) {
+                      setImportJob(null);
+                    }
+                  }}
+                >
+                  {importJob?.status === "completed" ||
+                  importJob?.status === "failed"
+                    ? "Done"
+                    : "Close"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={!audienceId}>
+                <PlusIcon className="mr-2 size-4" />
+                Add Contact
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Contact</DialogTitle>
@@ -252,6 +497,7 @@ function ContactsTab() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {!audienceId ? (
@@ -304,7 +550,9 @@ function PropertiesTab() {
       setName("");
       setLabel("");
       setType("string");
+      toast.success("Property added");
     },
+    onError: () => toast.error("Failed to add property"),
   });
 
   const propertyColumns: ColumnDef<Property>[] = [

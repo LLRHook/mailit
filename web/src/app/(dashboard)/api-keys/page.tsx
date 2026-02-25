@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { PlusIcon, KeyIcon, TrashIcon } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +52,7 @@ export default function ApiKeysPage() {
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState("");
   const [name, setName] = useState("");
-  const [permission, setPermission] = useState("full_access");
+  const [permission, setPermission] = useState("full");
 
   const { data, isLoading } = useQuery({
     queryKey: ["api-keys"],
@@ -69,8 +70,10 @@ export default function ApiKeysPage() {
       setNewKeyValue(data.data.key);
       setKeyDialogOpen(true);
       setName("");
-      setPermission("full_access");
+      setPermission("full");
+      toast.success("API key created");
     },
+    onError: () => toast.error("Failed to create API key"),
   });
 
   const deleteMutation = useMutation({
@@ -78,7 +81,9 @@ export default function ApiKeysPage() {
       api.delete(`/api-keys/${id}`).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      toast.success("API key deleted");
     },
+    onError: () => toast.error("Failed to delete API key"),
   });
 
   const columns: ColumnDef<ApiKey>[] = [
@@ -188,8 +193,8 @@ export default function ApiKeysPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="full_access">Full Access</SelectItem>
-                    <SelectItem value="sending_access">Sending Only</SelectItem>
+                    <SelectItem value="full">Full Access</SelectItem>
+                    <SelectItem value="sending">Sending Only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
