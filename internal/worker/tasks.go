@@ -16,7 +16,8 @@ const (
 	TaskWebhookDeliver = "webhook:deliver"
 	TaskBounceProcess  = "bounce:process"
 	TaskInboundProcess = "inbound:process"
-	TaskCleanupExpired = "cleanup:expired"
+	TaskCleanupExpired    = "cleanup:expired"
+	TaskMetricsAggregate  = "metrics:aggregate"
 )
 
 // Queue names and their intended priority levels.
@@ -139,4 +140,9 @@ func NewInboundProcessTask(inboundEmailID uuid.UUID) (*asynq.Task, error) {
 // NewCleanupExpiredTask creates an asynq task for cleaning up expired data.
 func NewCleanupExpiredTask() (*asynq.Task, error) {
 	return asynq.NewTask(TaskCleanupExpired, nil, asynq.Queue(QueueLow), asynq.MaxRetry(1)), nil
+}
+
+// NewMetricsAggregateTask creates an asynq task for aggregating email metrics.
+func NewMetricsAggregateTask() (*asynq.Task, error) {
+	return asynq.NewTask(TaskMetricsAggregate, nil, asynq.Queue(QueueLow), asynq.MaxRetry(1)), nil
 }

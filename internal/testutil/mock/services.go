@@ -427,3 +427,18 @@ func (m *MockLogService) List(ctx context.Context, teamID uuid.UUID, level strin
 	}
 	return args.Get(0).(*dto.PaginatedResponse[model.Log]), args.Error(1)
 }
+
+// --- MetricsService ---
+
+type MockMetricsService struct{ mock.Mock }
+
+func (m *MockMetricsService) Get(ctx context.Context, teamID uuid.UUID, period string) (*dto.MetricsResponse, error) {
+	args := m.Called(ctx, teamID, period)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.MetricsResponse), args.Error(1)
+}
+func (m *MockMetricsService) IncrementCounter(ctx context.Context, teamID uuid.UUID, eventType string) error {
+	return m.Called(ctx, teamID, eventType).Error(0)
+}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   MailIcon,
   SendIcon,
@@ -16,9 +18,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import api from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ChartContainer,
   ChartTooltip,
@@ -26,15 +36,37 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-// TODO: Replace with real API data from /metrics endpoint
-const emailsSentData: { date: string; sent: number }[] = [];
-
-const deliveryBreakdownData: {
+interface MetricsDataPoint {
   date: string;
+  sent: number;
   delivered: number;
   bounced: number;
   failed: number;
-}[] = [];
+  opened: number;
+  clicked: number;
+  complained: number;
+}
+
+interface MetricsTotals {
+  sent: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  opened: number;
+  clicked: number;
+  complained: number;
+  delivery_rate: number;
+  open_rate: number;
+  bounce_rate: number;
+}
+
+interface MetricsResponse {
+  period: string;
+  from: string;
+  to: string;
+  totals: MetricsTotals;
+  data: MetricsDataPoint[];
+}
 
 const sentChartConfig: ChartConfig = {
   sent: {
@@ -59,48 +91,68 @@ const deliveryChartConfig: ChartConfig = {
 };
 
 export default function MetricsPage() {
-  const totalSent = emailsSentData.reduce((sum, d) => sum + d.sent, 0);
-  const totalDelivered = deliveryBreakdownData.reduce(
-    (sum, d) => sum + d.delivered,
-    0
-  );
-  const totalBounced = deliveryBreakdownData.reduce(
-    (sum, d) => sum + d.bounced,
-    0
-  );
-  const deliveryRate =
-    totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) : "0";
-  const bounceRate =
-    totalSent > 0 ? ((totalBounced / totalSent) * 100).toFixed(1) : "0";
+  const [period, setPeriod] = useState("7d");
 
-  const hasData = emailsSentData.length > 0;
+  const { data: metricsData, isLoading } = useQuery<MetricsResponse>({
+    queryKey: ["metrics", period],
+    queryFn: () =>
+      api.get(`/metrics?period=${period}`).then((res) => res.data),
+  });
+
+  const totals = metricsData?.totals;
+  const chartData = metricsData?.data ?? [];
+  const hasData = chartData.length > 0 && (totals?.sent ?? 0) > 0;
+
+  const periodLabel =
+    period === "24h"
+      ? "Last 24 Hours"
+      : period === "30d"
+        ? "Last 30 Days"
+        : "Last 7 Days";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Metrics"
         description="Monitor your email performance"
-      />
+      >
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="24h">Last 24 Hours</SelectItem>
+            <SelectItem value="7d">Last 7 Days</SelectItem>
+            <SelectItem value="30d">Last 30 Days</SelectItem>
+          </SelectContent>
+        </Select>
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Emails Sent (24h)"
-          value={totalSent}
+          title="Emails Sent"
+          value={isLoading ? "..." : (totals?.sent ?? 0)}
           icon={MailIcon}
         />
         <StatCard
           title="Delivery Rate"
-          value={`${deliveryRate}%`}
+          value={
+            isLoading ? "..." : `${(totals?.delivery_rate ?? 0).toFixed(1)}%`
+          }
           icon={SendIcon}
         />
         <StatCard
           title="Open Rate"
-          value="0%"
+          value={
+            isLoading ? "..." : `${(totals?.open_rate ?? 0).toFixed(1)}%`
+          }
           icon={EyeIcon}
         />
         <StatCard
           title="Bounce Rate"
-          value={`${bounceRate}%`}
+          value={
+            isLoading ? "..." : `${(totals?.bounce_rate ?? 0).toFixed(1)}%`
+          }
           icon={AlertTriangleIcon}
         />
       </div>
@@ -109,11 +161,14 @@ export default function MetricsPage() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Emails Sent (Last 7 Days)</CardTitle>
+              <CardTitle>Emails Sent ({periodLabel})</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={sentChartConfig} className="h-[300px] w-full">
-                <AreaChart data={emailsSentData}>
+              <ChartContainer
+                config={sentChartConfig}
+                className="h-[300px] w-full"
+              >
+                <AreaChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
@@ -133,14 +188,14 @@ export default function MetricsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Delivery Breakdown (Last 7 Days)</CardTitle>
+              <CardTitle>Delivery Breakdown ({periodLabel})</CardTitle>
             </CardHeader>
             <CardContent>
               <ChartContainer
                 config={deliveryChartConfig}
                 className="h-[300px] w-full"
               >
-                <BarChart data={deliveryBreakdownData}>
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />

@@ -16,4 +16,5 @@ type Services struct {
 	Webhook         WebhookService
 	InboundEmail    InboundEmailService
 	Log             LogService
+	Metrics         MetricsService
 }

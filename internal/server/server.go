@@ -150,6 +150,9 @@ func New(cfg Config) *http.Server {
 
 		// Logs
 		r.Get("/logs", h.Log.List)
+
+		// Metrics
+		r.Get("/metrics", h.Metrics.Get)
 	})
 
 	return &http.Server{

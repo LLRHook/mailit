@@ -203,6 +203,7 @@ func runServe(configPath string) {
 	suppressionRepo := postgres.NewSuppressionRepository(pool)
 	inboundEmailRepo := postgres.NewInboundEmailRepository(pool)
 	logRepo := postgres.NewLogRepository(pool)
+	metricsRepo := postgres.NewMetricsRepository(pool)
 
 	// --- Engine ---
 	dnsResolver := engine.NewDNSResolver(cfg.DNS.Resolver, cfg.DNS.Timeout)
@@ -250,6 +251,13 @@ func runServe(configPath string) {
 		Webhook:         service.NewWebhookService(webhookRepo),
 		InboundEmail:    service.NewInboundEmailService(inboundEmailRepo),
 		Log:             service.NewLogService(logRepo),
+		Metrics:         service.NewMetricsService(metricsRepo),
+	}
+
+	metricsIncrementFn := func(ctx context.Context, teamID uuid.UUID, eventType string) {
+		if err := services.Metrics.IncrementCounter(ctx, teamID, eventType); err != nil {
+			logger.Error("metrics increment failed", "error", err, "team_id", teamID, "event_type", eventType)
+		}
 	}
 
 	// --- Handlers ---
@@ -296,14 +304,15 @@ func runServe(configPath string) {
 
 	// --- Worker Mux ---
 	workerHandlers := worker.Handlers{
-		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, emailSenderAdapter, webhookDispatchFn, logger),
+		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, emailSenderAdapter, webhookDispatchFn, metricsIncrementFn, logger),
 		EmailBatchSend: worker.NewBatchEmailSendHandler(asynqClient, logger),
 		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, asynqClient, logger),
 		DomainVerify:   worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
 		Bounce:         worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),
 		Inbound:        worker.NewInboundHandler(inboundEmailRepo, webhookDispatchFn, logger),
 		Cleanup:        worker.NewCleanupHandler(webhookEventRepo, logRepo, logger),
-		WebhookDeliver: worker.NewWebhookDeliverHandler(dispatcher, logger),
+		WebhookDeliver:   worker.NewWebhookDeliverHandler(dispatcher, logger),
+		MetricsAggregate: worker.NewMetricsAggregateHandler(pool, metricsRepo, logger),
 	}
 	mux := worker.NewMux(workerHandlers)
 

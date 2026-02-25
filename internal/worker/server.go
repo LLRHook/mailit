@@ -38,7 +38,8 @@ type Handlers struct {
 	Bounce         *BounceHandler
 	Inbound        *InboundHandler
 	Cleanup        *CleanupHandler
-	WebhookDeliver *WebhookDeliverHandler
+	WebhookDeliver   *WebhookDeliverHandler
+	MetricsAggregate *MetricsAggregateHandler
 }
 
 // NewServer creates and configures a new asynq Server.
@@ -100,6 +101,9 @@ func NewMux(h Handlers) *asynq.ServeMux {
 	}
 	if h.WebhookDeliver != nil {
 		mux.HandleFunc(TaskWebhookDeliver, h.WebhookDeliver.ProcessTask)
+	}
+	if h.MetricsAggregate != nil {
+		mux.HandleFunc(TaskMetricsAggregate, h.MetricsAggregate.ProcessTask)
 	}
 
 	return mux

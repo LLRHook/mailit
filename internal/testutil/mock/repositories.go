@@ -583,3 +583,25 @@ func (m *MockLogRepository) List(ctx context.Context, teamID uuid.UUID, level st
 	args := m.Called(ctx, teamID, level, limit, offset)
 	return args.Get(0).([]model.Log), args.Int(1), args.Error(2)
 }
+
+// --- MetricsRepository ---
+
+type MockMetricsRepository struct{ mock.Mock }
+
+func (m *MockMetricsRepository) Upsert(ctx context.Context, metrics *model.EmailMetrics) error {
+	return m.Called(ctx, metrics).Error(0)
+}
+func (m *MockMetricsRepository) ListByTeam(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) ([]model.EmailMetrics, error) {
+	args := m.Called(ctx, teamID, periodType, from, to)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.EmailMetrics), args.Error(1)
+}
+func (m *MockMetricsRepository) AggregateTotals(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) (*model.EmailMetrics, error) {
+	args := m.Called(ctx, teamID, periodType, from, to)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.EmailMetrics), args.Error(1)
+}

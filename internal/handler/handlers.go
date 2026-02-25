@@ -18,6 +18,7 @@ type Handlers struct {
 	Webhook         *WebhookHandler
 	InboundEmail    *InboundEmailHandler
 	Log             *LogHandler
+	Metrics         *MetricsHandler
 }
 
 func NewHandlers(svc *service.Services) *Handlers {
@@ -36,5 +37,6 @@ func NewHandlers(svc *service.Services) *Handlers {
 		Webhook:         NewWebhookHandler(svc.Webhook),
 		InboundEmail:    NewInboundEmailHandler(svc.InboundEmail),
 		Log:             NewLogHandler(svc.Log),
+		Metrics:         NewMetricsHandler(svc.Metrics),
 	}
 }

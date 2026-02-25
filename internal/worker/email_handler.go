@@ -54,13 +54,14 @@ type WebhookDispatchFunc func(ctx context.Context, teamID uuid.UUID, eventType s
 
 // EmailSendHandler processes email:send tasks.
 type EmailSendHandler struct {
-	emailRepo       postgres.EmailRepository
-	eventRepo       postgres.EmailEventRepository
-	domainRepo      postgres.DomainRepository
-	suppressionRepo postgres.SuppressionRepository
-	sender          EmailSender
-	webhookDispatch WebhookDispatchFunc
-	logger          *slog.Logger
+	emailRepo        postgres.EmailRepository
+	eventRepo        postgres.EmailEventRepository
+	domainRepo       postgres.DomainRepository
+	suppressionRepo  postgres.SuppressionRepository
+	sender           EmailSender
+	webhookDispatch  WebhookDispatchFunc
+	metricsIncrement MetricsIncrementFunc
+	logger           *slog.Logger
 }
 
 // NewEmailSendHandler creates a new EmailSendHandler.
@@ -71,16 +72,18 @@ func NewEmailSendHandler(
 	suppressionRepo postgres.SuppressionRepository,
 	sender EmailSender,
 	webhookDispatch WebhookDispatchFunc,
+	metricsIncrement MetricsIncrementFunc,
 	logger *slog.Logger,
 ) *EmailSendHandler {
 	return &EmailSendHandler{
-		emailRepo:       emailRepo,
-		eventRepo:       eventRepo,
-		domainRepo:      domainRepo,
-		suppressionRepo: suppressionRepo,
-		sender:          sender,
-		webhookDispatch: webhookDispatch,
-		logger:          logger,
+		emailRepo:        emailRepo,
+		eventRepo:        eventRepo,
+		domainRepo:       domainRepo,
+		suppressionRepo:  suppressionRepo,
+		sender:           sender,
+		webhookDispatch:  webhookDispatch,
+		metricsIncrement: metricsIncrement,
+		logger:           logger,
 	}
 }
 
@@ -202,6 +205,7 @@ func (h *EmailSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) error
 				"code":    r.Code,
 				"message": r.Message,
 			})
+			h.incrementMetrics(ctx, email.TeamID, model.EventSent)
 			if h.webhookDispatch != nil {
 				h.webhookDispatch(ctx, email.TeamID, "email.sent", map[string]interface{}{
 					"email_id":  email.ID.String(),
@@ -216,6 +220,7 @@ func (h *EmailSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) error
 				"message": r.Message,
 				"type":    "hard",
 			})
+			h.incrementMetrics(ctx, email.TeamID, model.EventBounced)
 			// Enqueue a bounce:process task for hard bounces.
 			bounceTask, taskErr := NewBounceProcessTask(email.ID, r.Code, r.Message, r.Recipient)
 			if taskErr != nil {
@@ -244,6 +249,7 @@ func (h *EmailSendHandler) ProcessTask(ctx context.Context, t *asynq.Task) error
 				"type":      "temporary",
 				"will_retry": true,
 			})
+			h.incrementMetrics(ctx, email.TeamID, model.EventFailed)
 		}
 	}
 
@@ -304,6 +310,13 @@ func (h *EmailSendHandler) createEvent(ctx context.Context, emailID uuid.UUID, e
 	}
 	if err := h.eventRepo.Create(ctx, event); err != nil {
 		h.logger.Error("failed to create email event", "error", err, "email_id", emailID, "event_type", eventType)
+	}
+}
+
+// incrementMetrics safely calls the metrics increment function if set.
+func (h *EmailSendHandler) incrementMetrics(ctx context.Context, teamID uuid.UUID, eventType string) {
+	if h.metricsIncrement != nil {
+		h.metricsIncrement(ctx, teamID, eventType)
 	}
 }
 

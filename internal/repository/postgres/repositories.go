@@ -195,3 +195,10 @@ type LogRepository interface {
 	Create(ctx context.Context, log *model.Log) error
 	List(ctx context.Context, teamID uuid.UUID, level string, limit, offset int) ([]model.Log, int, error)
 }
+
+// MetricsRepository defines persistence operations for email metrics.
+type MetricsRepository interface {
+	Upsert(ctx context.Context, m *model.EmailMetrics) error
+	ListByTeam(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) ([]model.EmailMetrics, error)
+	AggregateTotals(ctx context.Context, teamID uuid.UUID, periodType string, from, to time.Time) (*model.EmailMetrics, error)
+}
