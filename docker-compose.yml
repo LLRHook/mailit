@@ -1,82 +1,176 @@
+# MailIt Docker Compose Configuration
+# Production-ready setup with API, dashboard, PostgreSQL, and Redis
+# Required env vars: POSTGRES_PASSWORD, JWT_SECRET, NEXTAUTH_SECRET, MAILIT_DOMAIN, DKIM_MASTER_KEY
+# See .env.example for all available configuration options
+
 services:
+  # ─── MailIt API Server ──────────────────────────────────────────────
   mailit-api:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+    container_name: mailit-api
+    restart: unless-stopped
     ports:
-      - "${HTTP_PORT:-8080}:8080"
-      - "${SMTP_PORT:-25}:25"
-      - "${SMTP_SUBMISSION_PORT:-587}:587"
+      - "${HTTP_PORT:-8080}:8080"        # API server
+      - "${SMTP_PORT:-25}:25"            # Inbound SMTP (bounces/replies)
+      - "${SMTP_SUBMISSION_PORT:-587}:587"  # SMTP submission port
     environment:
+      # Database
       - MAILIT_DATABASE_HOST=postgres
       - MAILIT_DATABASE_PORT=5432
       - MAILIT_DATABASE_USER=${POSTGRES_USER:-mailit}
       - MAILIT_DATABASE_PASSWORD=${POSTGRES_PASSWORD}
       - MAILIT_DATABASE_DBNAME=${POSTGRES_DB:-mailit}
+      - MAILIT_DATABASE_SSLMODE=${DATABASE_SSLMODE:-disable}
+
+      # Redis
       - MAILIT_REDIS_ADDR=redis:6379
+      - MAILIT_REDIS_PASSWORD=${REDIS_PASSWORD}
+      - MAILIT_REDIS_DB=0
+
+      # Authentication
       - MAILIT_AUTH_JWT_SECRET=${JWT_SECRET}
+      - MAILIT_AUTH_BCRYPT_COST=${BCRYPT_COST:-12}
+
+      # SMTP Configuration
       - MAILIT_SMTP_OUTBOUND_HOSTNAME=${MAILIT_DOMAIN}
       - MAILIT_SMTP_INBOUND_DOMAIN=${MAILIT_DOMAIN}
+      - MAILIT_SMTP_INBOUND_ENABLED=true
+
+      # DKIM
+      - MAILIT_DKIM_SELECTOR=${DKIM_SELECTOR:-mailit}
       - MAILIT_DKIM_MASTER_ENCRYPTION_KEY=${DKIM_MASTER_KEY}
+      - MAILIT_DKIM_KEY_BITS=${DKIM_KEY_BITS:-2048}
+
+      # Server
+      - MAILIT_SERVER_HTTP_ADDR=:8080
       - MAILIT_SERVER_CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+
+      # Logging
+      - MAILIT_LOGGING_LEVEL=${LOG_LEVEL:-info}
+      - MAILIT_LOGGING_FORMAT=${LOG_FORMAT:-json}
+
+      # Rate Limiting
+      - MAILIT_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - MAILIT_RATE_LIMIT_DEFAULT_RPS=${RATE_LIMIT_DEFAULT_RPS:-10}
+
+      # Storage
+      - MAILIT_STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - MAILIT_STORAGE_LOCAL_PATH=${STORAGE_LOCAL_PATH:-/data/attachments}
+
+      # Webhooks
+      - MAILIT_WEBHOOKS_SIGNING_ALGORITHM=${WEBHOOK_SIGNING_ALGORITHM:-hmac-sha256}
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: unless-stopped
+
     volumes:
       - mailit-data:/data
 
+    networks:
+      - mailit-network
+
+  # ─── MailIt Dashboard (Next.js) ─────────────────────────────────────
   mailit-web:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    container_name: mailit-web
+    restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:8080}
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXT_TELEMETRY_DISABLED=1
+
     depends_on:
       mailit-api:
         condition: service_healthy
-    restart: unless-stopped
 
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    networks:
+      - mailit-network
+
+  # ─── PostgreSQL Database ────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
+    container_name: mailit-postgres
+    restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-mailit}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB:-mailit}
+
     volumes:
       - postgres-data:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailit}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
+    networks:
+      - mailit-network
+
+  # ─── Redis Cache & Job Queue ───────────────────────────────────────
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    container_name: mailit-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+
     volumes:
       - redis-data:/data
+
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "${REDIS_PASSWORD:+--auth $REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
+    networks:
+      - mailit-network
+
+# Volumes
 volumes:
   mailit-data:
+    driver: local
   postgres-data:
+    driver: local
   redis-data:
+    driver: local
+
+# Networks
+networks:
+  mailit-network:
+    driver: bridge
