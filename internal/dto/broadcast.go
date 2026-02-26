@@ -22,11 +22,12 @@ type UpdateBroadcastRequest struct {
 }
 
 type BroadcastResponse struct {
-	ID              string  `json:"id"`
-	Name            string  `json:"name"`
-	AudienceID      *string `json:"audience_id,omitempty"`
-	Status          string  `json:"status"`
-	TotalRecipients int     `json:"total_recipients"`
-	SentCount       int     `json:"sent_count"`
-	CreatedAt       string  `json:"created_at"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	AudienceID   *string `json:"audience_id,omitempty"`
+	AudienceName *string `json:"audience_name,omitempty"`
+	Status       string  `json:"status"`
+	Recipients   int     `json:"recipients"`
+	Sent         int     `json:"sent"`
+	CreatedAt    string  `json:"created_at"`
 }

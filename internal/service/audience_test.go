@@ -49,7 +49,7 @@ func TestAudienceService_List(t *testing.T) {
 	resp, err := svc.List(ctx, teamID)
 
 	require.NoError(t, err)
-	assert.Len(t, resp, 2)
+	assert.Len(t, resp.Data, 2)
 
 	audienceRepo.AssertExpectations(t)
 }

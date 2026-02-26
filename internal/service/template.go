@@ -17,7 +17,7 @@ import (
 type TemplateService interface {
 	Create(ctx context.Context, teamID uuid.UUID, req *dto.CreateTemplateRequest) (*dto.TemplateResponse, error)
 	List(ctx context.Context, teamID uuid.UUID, params *dto.PaginationParams) (*dto.PaginatedResponse[dto.TemplateResponse], error)
-	Get(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateResponse, error)
+	Get(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateDetailResponse, error)
 	Update(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID, req *dto.UpdateTemplateRequest) (*dto.TemplateResponse, error)
 	Delete(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) error
 	Publish(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateResponse, error)
@@ -105,7 +105,7 @@ func (s *templateService) List(ctx context.Context, teamID uuid.UUID, params *dt
 	}, nil
 }
 
-func (s *templateService) Get(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateResponse, error) {
+func (s *templateService) Get(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateDetailResponse, error) {
 	template, err := s.templateRepo.GetByID(ctx, templateID)
 	if err != nil {
 		return nil, fmt.Errorf("template not found: %w", err)
@@ -116,7 +116,24 @@ func (s *templateService) Get(ctx context.Context, teamID uuid.UUID, templateID 
 		return nil, fmt.Errorf("template not found: %w", postgres.ErrNotFound)
 	}
 
-	return templateToResponse(template), nil
+	resp := &dto.TemplateDetailResponse{
+		ID:          template.ID.String(),
+		Name:        template.Name,
+		Description: template.Description,
+		CreatedAt:   template.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   template.UpdatedAt.Format(time.RFC3339),
+	}
+
+	// Fetch latest version to include content fields.
+	latest, err := s.templateVersionRepo.GetLatestByTemplateID(ctx, template.ID)
+	if err == nil && latest != nil {
+		resp.Subject = latest.Subject
+		resp.HTML = latest.HTMLBody
+		resp.Text = latest.TextBody
+		resp.Published = latest.Published
+	}
+
+	return resp, nil
 }
 
 func (s *templateService) Update(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID, req *dto.UpdateTemplateRequest) (*dto.TemplateResponse, error) {

@@ -270,12 +270,12 @@ func (s *broadcastService) Send(ctx context.Context, teamID uuid.UUID, broadcast
 // broadcastToResponse converts a model.Broadcast to a dto.BroadcastResponse.
 func broadcastToResponse(b *model.Broadcast) *dto.BroadcastResponse {
 	resp := &dto.BroadcastResponse{
-		ID:              b.ID.String(),
-		Name:            b.Name,
-		Status:          b.Status,
-		TotalRecipients: b.TotalRecipients,
-		SentCount:       b.SentCount,
-		CreatedAt:       b.CreatedAt.Format(time.RFC3339),
+		ID:         b.ID.String(),
+		Name:       b.Name,
+		Status:     b.Status,
+		Recipients: b.TotalRecipients,
+		Sent:       b.SentCount,
+		CreatedAt:  b.CreatedAt.Format(time.RFC3339),
 	}
 
 	if b.AudienceID != nil {

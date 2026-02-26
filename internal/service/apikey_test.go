@@ -54,12 +54,12 @@ func TestAPIKeyService_List_ReturnsKeysWithoutPlaintext(t *testing.T) {
 	resp, err := svc.List(ctx, teamID)
 
 	require.NoError(t, err)
-	assert.Len(t, resp, 2)
+	assert.Len(t, resp.Data, 2)
 	// Token should be empty on list (only returned on create).
-	assert.Empty(t, resp[0].Token)
-	assert.Empty(t, resp[1].Token)
-	assert.Equal(t, "Test Key", resp[0].Name)
-	assert.Equal(t, "Second Key", resp[1].Name)
+	assert.Empty(t, resp.Data[0].Token)
+	assert.Empty(t, resp.Data[1].Token)
+	assert.Equal(t, "Test Key", resp.Data[0].Name)
+	assert.Equal(t, "Second Key", resp.Data[1].Name)
 
 	apiKeyRepo.AssertExpectations(t)
 }

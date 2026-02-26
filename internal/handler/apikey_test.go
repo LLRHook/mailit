@@ -94,8 +94,10 @@ func TestAPIKeyHandler_List_Success(t *testing.T) {
 	mockSvc := new(mockpkg.MockAPIKeyService)
 	h := NewAPIKeyHandler(mockSvc)
 
-	expected := []dto.APIKeyResponse{
-		{ID: uuid.New().String(), Name: "Key 1", Permission: "full"},
+	expected := &dto.ListResponse[dto.APIKeyResponse]{
+		Data: []dto.APIKeyResponse{
+			{ID: uuid.New().String(), Name: "Key 1", Permission: "full"},
+		},
 	}
 	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return(expected, nil)
 

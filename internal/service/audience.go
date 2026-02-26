@@ -16,7 +16,7 @@ import (
 // AudienceService defines operations for managing audiences (contact lists).
 type AudienceService interface {
 	Create(ctx context.Context, teamID uuid.UUID, req *dto.CreateAudienceRequest) (*dto.AudienceResponse, error)
-	List(ctx context.Context, teamID uuid.UUID) ([]dto.AudienceResponse, error)
+	List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.AudienceResponse], error)
 	Get(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) (*dto.AudienceResponse, error)
 	Delete(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) error
 }
@@ -54,7 +54,7 @@ func (s *audienceService) Create(ctx context.Context, teamID uuid.UUID, req *dto
 	return audienceToResponse(audience), nil
 }
 
-func (s *audienceService) List(ctx context.Context, teamID uuid.UUID) ([]dto.AudienceResponse, error) {
+func (s *audienceService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.AudienceResponse], error) {
 	audiences, err := s.audienceRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("listing audiences: %w", err)
@@ -65,7 +65,7 @@ func (s *audienceService) List(ctx context.Context, teamID uuid.UUID) ([]dto.Aud
 		responses = append(responses, *audienceToResponse(&a))
 	}
 
-	return responses, nil
+	return &dto.ListResponse[dto.AudienceResponse]{Data: responses}, nil
 }
 
 func (s *audienceService) Get(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) (*dto.AudienceResponse, error) {

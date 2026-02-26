@@ -16,7 +16,7 @@ import (
 // TopicService defines operations for managing subscription topics.
 type TopicService interface {
 	Create(ctx context.Context, teamID uuid.UUID, req *dto.CreateTopicRequest) (*dto.TopicResponse, error)
-	List(ctx context.Context, teamID uuid.UUID) ([]dto.TopicResponse, error)
+	List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.TopicResponse], error)
 	Update(ctx context.Context, teamID uuid.UUID, topicID uuid.UUID, req *dto.UpdateTopicRequest) (*dto.TopicResponse, error)
 	Delete(ctx context.Context, teamID uuid.UUID, topicID uuid.UUID) error
 }
@@ -55,7 +55,7 @@ func (s *topicService) Create(ctx context.Context, teamID uuid.UUID, req *dto.Cr
 	return topicToResponse(topic), nil
 }
 
-func (s *topicService) List(ctx context.Context, teamID uuid.UUID) ([]dto.TopicResponse, error) {
+func (s *topicService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.TopicResponse], error) {
 	topics, err := s.topicRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("listing topics: %w", err)
@@ -66,7 +66,7 @@ func (s *topicService) List(ctx context.Context, teamID uuid.UUID) ([]dto.TopicR
 		responses = append(responses, *topicToResponse(&t))
 	}
 
-	return responses, nil
+	return &dto.ListResponse[dto.TopicResponse]{Data: responses}, nil
 }
 
 func (s *topicService) Update(ctx context.Context, teamID uuid.UUID, topicID uuid.UUID, req *dto.UpdateTopicRequest) (*dto.TopicResponse, error) {

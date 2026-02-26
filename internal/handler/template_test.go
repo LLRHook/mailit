@@ -87,7 +87,7 @@ func TestTemplateHandler_Get_Success(t *testing.T) {
 	h := NewTemplateHandler(mockSvc)
 
 	templateID := uuid.New()
-	expected := &dto.TemplateResponse{ID: templateID.String(), Name: "My Template"}
+	expected := &dto.TemplateDetailResponse{ID: templateID.String(), Name: "My Template"}
 	mockSvc.On("Get", mock.Anything, testutil.TestTeamID, templateID).Return(expected, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/templates/"+templateID.String(), nil)

@@ -62,8 +62,10 @@ func TestTopicHandler_List_Success(t *testing.T) {
 	mockSvc := new(mockpkg.MockTopicService)
 	h := NewTopicHandler(mockSvc)
 
-	expected := []dto.TopicResponse{
-		{ID: uuid.New().String(), Name: "Topic 1"},
+	expected := &dto.ListResponse[dto.TopicResponse]{
+		Data: []dto.TopicResponse{
+			{ID: uuid.New().String(), Name: "Topic 1"},
+		},
 	}
 	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return(expected, nil)
 
@@ -82,7 +84,7 @@ func TestTopicHandler_List_ServiceError(t *testing.T) {
 	mockSvc := new(mockpkg.MockTopicService)
 	h := NewTopicHandler(mockSvc)
 
-	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return([]dto.TopicResponse(nil), errors.New("db error"))
+	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return((*dto.ListResponse[dto.TopicResponse])(nil), errors.New("db error"))
 
 	req := httptest.NewRequest(http.MethodGet, "/topics", nil)
 	req = testutil.AuthenticatedRequest(req, testutil.TestTeamID, testutil.TestUserID)

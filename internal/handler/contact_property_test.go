@@ -97,8 +97,10 @@ func TestContactPropertyHandler_List_Success(t *testing.T) {
 	mockSvc := new(mockpkg.MockContactPropertyService)
 	h := NewContactPropertyHandler(mockSvc)
 
-	expected := []dto.ContactPropertyResponse{
-		{ID: uuid.New().String(), Name: "company", Label: "Company", Type: "string"},
+	expected := &dto.ListResponse[dto.ContactPropertyResponse]{
+		Data: []dto.ContactPropertyResponse{
+			{ID: uuid.New().String(), Name: "company", Label: "Company", Type: "string"},
+		},
 	}
 	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return(expected, nil)
 

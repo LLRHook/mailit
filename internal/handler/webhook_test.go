@@ -71,8 +71,10 @@ func TestWebhookHandler_List_Success(t *testing.T) {
 	mockSvc := new(mockpkg.MockWebhookService)
 	h := NewWebhookHandler(mockSvc)
 
-	expected := []dto.WebhookResponse{
-		{ID: uuid.New().String(), URL: "https://example.com/webhook", Events: []string{"email.sent"}, Active: true},
+	expected := &dto.ListResponse[dto.WebhookResponse]{
+		Data: []dto.WebhookResponse{
+			{ID: uuid.New().String(), URL: "https://example.com/webhook", Events: []string{"email.sent"}, Active: true},
+		},
 	}
 	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return(expected, nil)
 

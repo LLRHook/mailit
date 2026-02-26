@@ -22,3 +22,15 @@ type TemplateResponse struct {
 	Description *string `json:"description,omitempty"`
 	CreatedAt   string  `json:"created_at"`
 }
+
+type TemplateDetailResponse struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Subject     *string `json:"subject,omitempty"`
+	HTML        *string `json:"html,omitempty"`
+	Text        *string `json:"text,omitempty"`
+	Published   bool    `json:"published"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
+}

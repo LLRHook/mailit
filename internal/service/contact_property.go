@@ -16,7 +16,7 @@ import (
 // ContactPropertyService defines operations for managing custom contact properties.
 type ContactPropertyService interface {
 	Create(ctx context.Context, teamID uuid.UUID, req *dto.CreateContactPropertyRequest) (*dto.ContactPropertyResponse, error)
-	List(ctx context.Context, teamID uuid.UUID) ([]dto.ContactPropertyResponse, error)
+	List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.ContactPropertyResponse], error)
 	Update(ctx context.Context, teamID uuid.UUID, propertyID uuid.UUID, req *dto.UpdateContactPropertyRequest) (*dto.ContactPropertyResponse, error)
 	Delete(ctx context.Context, teamID uuid.UUID, propertyID uuid.UUID) error
 }
@@ -56,7 +56,7 @@ func (s *contactPropertyService) Create(ctx context.Context, teamID uuid.UUID, r
 	return contactPropertyToResponse(property), nil
 }
 
-func (s *contactPropertyService) List(ctx context.Context, teamID uuid.UUID) ([]dto.ContactPropertyResponse, error) {
+func (s *contactPropertyService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.ContactPropertyResponse], error) {
 	properties, err := s.propertyRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("listing contact properties: %w", err)
@@ -67,7 +67,7 @@ func (s *contactPropertyService) List(ctx context.Context, teamID uuid.UUID) ([]
 		responses = append(responses, *contactPropertyToResponse(&p))
 	}
 
-	return responses, nil
+	return &dto.ListResponse[dto.ContactPropertyResponse]{Data: responses}, nil
 }
 
 func (s *contactPropertyService) Update(ctx context.Context, teamID uuid.UUID, propertyID uuid.UUID, req *dto.UpdateContactPropertyRequest) (*dto.ContactPropertyResponse, error) {
