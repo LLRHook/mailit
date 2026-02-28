@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { MailIcon, SendIcon, AlertTriangleIcon, EyeIcon } from "lucide-react";
+import { MailIcon, SendIcon, AlertTriangleIcon, EyeIcon, RefreshCwIcon } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -56,9 +58,10 @@ const columns: ColumnDef<Email>[] = [
 export default function EmailsPage() {
   const router = useRouter();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["emails"],
     queryFn: () => api.get("/emails").then((res) => res.data),
+    refetchInterval: 15_000,
   });
 
   const emails: Email[] = data?.data ?? [];
@@ -76,27 +79,43 @@ export default function EmailsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Sent"
-          value={totalSent}
+          value={isLoading ? "\u2014" : totalSent}
           icon={MailIcon}
         />
         <StatCard
           title="Delivered"
-          value={delivered}
+          value={isLoading ? "\u2014" : delivered}
           icon={SendIcon}
         />
         <StatCard
           title="Bounced"
-          value={bounced}
+          value={isLoading ? "\u2014" : bounced}
           icon={AlertTriangleIcon}
         />
         <StatCard
           title="Open Rate"
-          value={`${openRate}%`}
+          value={isLoading ? "\u2014" : `${openRate}%`}
           icon={EyeIcon}
         />
       </div>
 
-      {!isLoading && emails.length === 0 ? (
+      {isError ? (
+        <Card className="bg-card border-border">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-destructive/10 p-4 mb-4">
+              <AlertTriangleIcon className="h-8 w-8 text-destructive" />
+            </div>
+            <h3 className="text-lg font-medium">Failed to load emails</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              {error?.message || "An unexpected error occurred while fetching emails."}
+            </p>
+            <Button onClick={() => refetch()} size="sm" className="mt-4">
+              <RefreshCwIcon className="mr-2 size-4" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : !isLoading && emails.length === 0 ? (
         <EmptyState
           icon={MailIcon}
           title="No emails yet"
