@@ -11,8 +11,9 @@ type Template struct {
 	TeamID      uuid.UUID `json:"team_id" db:"team_id"`
 	Name        string    `json:"name" db:"name"`
 	Description *string   `json:"description,omitempty" db:"description"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	VersionCount int       `json:"-" db:"-"` // populated via subquery, not a DB column
 }
 
 type TemplateVersion struct {

@@ -20,6 +20,7 @@ type TemplateResponse struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
+	Versions    int     `json:"versions"`
 	CreatedAt   string  `json:"created_at"`
 }
 

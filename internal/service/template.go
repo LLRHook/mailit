@@ -256,6 +256,7 @@ func templateToResponse(t *model.Template) *dto.TemplateResponse {
 		ID:          t.ID.String(),
 		Name:        t.Name,
 		Description: t.Description,
+		Versions:    t.VersionCount,
 		CreatedAt:   t.CreatedAt.Format(time.RFC3339),
 	}
 }

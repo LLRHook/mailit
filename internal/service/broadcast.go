@@ -282,6 +282,7 @@ func broadcastToResponse(b *model.Broadcast) *dto.BroadcastResponse {
 		aid := b.AudienceID.String()
 		resp.AudienceID = &aid
 	}
+	resp.AudienceName = b.AudienceName
 
 	return resp
 }

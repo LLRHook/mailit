@@ -88,10 +88,16 @@ func (r *broadcastRepository) List(ctx context.Context, teamID uuid.UUID, limit,
 		return nil, 0, fmt.Errorf("count broadcasts: %w", err)
 	}
 
-	query := fmt.Sprintf(`
-		SELECT %s FROM broadcasts WHERE team_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3`, broadcastColumns)
+	query := `
+		SELECT b.id, b.team_id, b.name, b.audience_id, b.segment_id, b.template_id,
+			b.from_address, b.subject, b.html_body, b.text_body, b.status,
+			b.scheduled_at, b.sent_at, b.total_recipients, b.sent_count,
+			b.created_at, b.updated_at, a.name AS audience_name
+		FROM broadcasts b
+		LEFT JOIN audiences a ON a.id = b.audience_id
+		WHERE b.team_id = $1
+		ORDER BY b.created_at DESC
+		LIMIT $2 OFFSET $3`
 
 	rows, err := r.pool.Query(ctx, query, teamID, limit, offset)
 	if err != nil {
@@ -105,7 +111,7 @@ func (r *broadcastRepository) List(ctx context.Context, teamID uuid.UUID, limit,
 			&b.ID, &b.TeamID, &b.Name, &b.AudienceID, &b.SegmentID, &b.TemplateID,
 			&b.FromAddress, &b.Subject, &b.HTMLBody, &b.TextBody, &b.Status,
 			&b.ScheduledAt, &b.SentAt, &b.TotalRecipients, &b.SentCount,
-			&b.CreatedAt, &b.UpdatedAt,
+			&b.CreatedAt, &b.UpdatedAt, &b.AudienceName,
 		)
 		return b, err
 	})

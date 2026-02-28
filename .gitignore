@@ -24,6 +24,10 @@ coverage.html
 .claude/
 CLAUDE.md
 context-audit-report.txt
+.agent/
+.agents/
+skills-lock.json
+dogfood-output/
 
 # OS
 .DS_Store

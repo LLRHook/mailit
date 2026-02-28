@@ -82,7 +82,7 @@ func (h *DomainHandler) Get(w http.ResponseWriter, r *http.Request) {
 		pkg.HandleError(w, err)
 		return
 	}
-	pkg.JSON(w, http.StatusOK, map[string]interface{}{"data": resp})
+	pkg.JSON(w, http.StatusOK, resp)
 }
 
 // Update handles PATCH /domains/{domainId}.
