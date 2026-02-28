@@ -14,20 +14,21 @@ import (
 
 // Config holds the complete application configuration.
 type Config struct {
-	Server       ServerConfig       `mapstructure:"server"`
-	Database     DatabaseConfig     `mapstructure:"database"`
-	Redis        RedisConfig        `mapstructure:"redis"`
-	Auth         AuthConfig         `mapstructure:"auth"`
-	SMTPOutbound SMTPOutboundConfig `mapstructure:"smtp_outbound"`
-	SMTPInbound  SMTPInboundConfig  `mapstructure:"smtp_inbound"`
-	DKIM         DKIMConfig         `mapstructure:"dkim"`
-	Workers      WorkersConfig      `mapstructure:"workers"`
-	RateLimit    RateLimitConfig    `mapstructure:"rate_limit"`
-	Webhooks     WebhooksConfig     `mapstructure:"webhooks"`
-	DNS          DNSConfig          `mapstructure:"dns"`
-	Logging      LoggingConfig      `mapstructure:"logging"`
-	Storage      StorageConfig      `mapstructure:"storage"`
-	Suppression  SuppressionConfig  `mapstructure:"suppression"`
+	Server        ServerConfig        `mapstructure:"server"`
+	Database      DatabaseConfig      `mapstructure:"database"`
+	Redis         RedisConfig         `mapstructure:"redis"`
+	Auth          AuthConfig          `mapstructure:"auth"`
+	SMTPOutbound  SMTPOutboundConfig  `mapstructure:"smtp_outbound"`
+	SMTPInbound   SMTPInboundConfig   `mapstructure:"smtp_inbound"`
+	DKIM          DKIMConfig          `mapstructure:"dkim"`
+	Workers       WorkersConfig       `mapstructure:"workers"`
+	RateLimit     RateLimitConfig     `mapstructure:"rate_limit"`
+	Webhooks      WebhooksConfig      `mapstructure:"webhooks"`
+	DNS           DNSConfig           `mapstructure:"dns"`
+	Logging       LoggingConfig       `mapstructure:"logging"`
+	Storage       StorageConfig       `mapstructure:"storage"`
+	Suppression   SuppressionConfig   `mapstructure:"suppression"`
+	Observability ObservabilityConfig `mapstructure:"observability"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -87,6 +88,12 @@ type SMTPOutboundConfig struct {
 	ConnectTimeout time.Duration `mapstructure:"connect_timeout"`
 	SendTimeout    time.Duration `mapstructure:"send_timeout"`
 	MaxRecipients  int           `mapstructure:"max_recipients"`
+	RelayMode      string        `mapstructure:"relay_mode"`     // "direct" or "relay"
+	RelayHost      string        `mapstructure:"relay_host"`     // e.g. email-smtp.us-east-1.amazonaws.com
+	RelayPort      int           `mapstructure:"relay_port"`     // default 587
+	RelayUsername  string        `mapstructure:"relay_username"`
+	RelayPassword  string        `mapstructure:"relay_password"`
+	RelayTLS       string        `mapstructure:"relay_tls"`      // "starttls" or "tls"
 }
 
 // SMTPInboundConfig holds inbound SMTP server settings.
@@ -192,6 +199,27 @@ type SuppressionConfig struct {
 	AutoAddComplaints  bool `mapstructure:"auto_add_complaints"`
 }
 
+// ObservabilityConfig holds metrics and tracing settings.
+type ObservabilityConfig struct {
+	Prometheus PrometheusConfig `mapstructure:"prometheus"`
+	Tracing    TracingConfig    `mapstructure:"tracing"`
+}
+
+// PrometheusConfig holds Prometheus metrics endpoint settings.
+type PrometheusConfig struct {
+	Enabled bool   `mapstructure:"enabled"`
+	Addr    string `mapstructure:"addr"` // default ":2112"
+}
+
+// TracingConfig holds OpenTelemetry tracing settings.
+type TracingConfig struct {
+	Enabled     bool    `mapstructure:"enabled"`
+	Endpoint    string  `mapstructure:"endpoint"`     // OTLP HTTP endpoint
+	SampleRate  float64 `mapstructure:"sample_rate"`
+	ServiceName string  `mapstructure:"service_name"`
+	Insecure    bool    `mapstructure:"insecure"`
+}
+
 // defaults returns the default configuration as a flat map using koanf's "."
 // delimiter for nested keys.
 func defaults() map[string]interface{} {
@@ -279,9 +307,23 @@ func defaults() map[string]interface{} {
 		"storage.type":       "local",
 		"storage.local_path": "./data/attachments",
 
+		// SMTP Outbound Relay
+		"smtp_outbound.relay_mode": "direct",
+		"smtp_outbound.relay_port": 587,
+		"smtp_outbound.relay_tls":  "starttls",
+
 		// Suppression
 		"suppression.auto_add_hard_bounces": true,
 		"suppression.auto_add_complaints":   true,
+
+		// Observability
+		"observability.prometheus.enabled": false,
+		"observability.prometheus.addr":    ":2112",
+		"observability.tracing.enabled":      false,
+		"observability.tracing.endpoint":     "localhost:4318",
+		"observability.tracing.sample_rate":  1.0,
+		"observability.tracing.service_name": "mailit",
+		"observability.tracing.insecure":     true,
 	}
 }
 
@@ -295,7 +337,7 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("loading defaults: %w", err)
 	}
 
-	// 2. Load YAML file if provided and exists.
+	// 2. Load YAML file if provided.
 	if path != "" {
 		if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
 			return nil, fmt.Errorf("loading config file %s: %w", path, err)
@@ -303,11 +345,13 @@ func Load(path string) (*Config, error) {
 	}
 
 	// 3. Overlay environment variables.
-	//    MAILIT_SERVER_HTTP_ADDR -> server.http_addr
+	//    MAILIT_DATABASE__HOST -> database.host
+	//    MAILIT_SMTP_INBOUND__ENABLED -> smtp_inbound.enabled
+	//    Double-underscore (__) is the nesting delimiter; single underscore is preserved.
 	if err := k.Load(env.Provider("MAILIT_", ".", func(s string) string {
 		return strings.ReplaceAll(
 			strings.ToLower(strings.TrimPrefix(s, "MAILIT_")),
-			"_", ".",
+			"__", ".",
 		)
 	}), nil); err != nil {
 		return nil, fmt.Errorf("loading env variables: %w", err)

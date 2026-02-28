@@ -96,14 +96,14 @@ func TestLoad_Defaults(t *testing.T) {
 }
 
 func TestLoad_EnvOverrides(t *testing.T) {
-	// The env transformer replaces ALL underscores with dots, so
-	// MAILIT_DATABASE_HOST -> database.host (works because each segment is one word).
-	// Multi-word koanf keys like "http_addr" cannot be targeted with a single
-	// underscore because it becomes a dot separator. Only test keys whose
-	// segments are single words.
-	t.Setenv("MAILIT_DATABASE_HOST", "db.example.com")
-	t.Setenv("MAILIT_LOGGING_LEVEL", "debug")
-	t.Setenv("MAILIT_DKIM_SELECTOR", "custom")
+	// Double-underscore (__) is the nesting delimiter; single underscore is
+	// preserved as a literal underscore in koanf keys.
+	// MAILIT_DATABASE__HOST -> database.host
+	// MAILIT_SMTP_OUTBOUND__HOSTNAME -> smtp_outbound.hostname
+	t.Setenv("MAILIT_DATABASE__HOST", "db.example.com")
+	t.Setenv("MAILIT_LOGGING__LEVEL", "debug")
+	t.Setenv("MAILIT_DKIM__SELECTOR", "custom")
+	t.Setenv("MAILIT_SERVER__HTTP_ADDR", ":9090")
 
 	cfg, err := Load("")
 	require.NoError(t, err)
@@ -112,9 +112,9 @@ func TestLoad_EnvOverrides(t *testing.T) {
 	assert.Equal(t, "db.example.com", cfg.Database.Host)
 	assert.Equal(t, "debug", cfg.Logging.Level)
 	assert.Equal(t, "custom", cfg.DKIM.Selector)
+	assert.Equal(t, ":9090", cfg.Server.HTTPAddr)
 
 	// Verify defaults are still set for keys we didn't override.
-	assert.Equal(t, ":8080", cfg.Server.HTTPAddr)
 	assert.Equal(t, 5432, cfg.Database.Port)
 	assert.Equal(t, "re_", cfg.Auth.APIKeyPrefix)
 }
