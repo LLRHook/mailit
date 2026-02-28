@@ -31,6 +31,11 @@ type PaginatedResponse[T any] struct {
 	HasMore    bool `json:"has_more"`
 }
 
+// ListResponse wraps a slice for non-paginated list endpoints.
+type ListResponse[T any] struct {
+	Data []T `json:"data"`
+}
+
 type ErrorResponse struct {
 	StatusCode int    `json:"statusCode"`
 	Message    string `json:"message"`

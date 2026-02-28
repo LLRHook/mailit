@@ -24,6 +24,7 @@ type Broadcast struct {
 	SentCount       int        `json:"sent_count" db:"sent_count"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+	AudienceName    *string    `json:"-" db:"-"` // populated via JOIN, not a DB column
 }
 
 const (

@@ -69,14 +69,19 @@ func TestTemplateService_Get_HappyPath(t *testing.T) {
 	teamID := testutil.TestTeamID
 
 	tmpl := testutil.NewTestTemplate()
+	version := testutil.NewTestTemplateVersion(tmpl.ID)
 	templateRepo.On("GetByID", ctx, tmpl.ID).Return(tmpl, nil)
+	versionRepo.On("GetLatestByTemplateID", ctx, tmpl.ID).Return(version, nil)
 
 	resp, err := svc.Get(ctx, teamID, tmpl.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, tmpl.ID.String(), resp.ID)
+	assert.Equal(t, version.Subject, resp.Subject)
+	assert.Equal(t, version.HTMLBody, resp.HTML)
 
 	templateRepo.AssertExpectations(t)
+	versionRepo.AssertExpectations(t)
 }
 
 func TestTemplateService_Get_WrongTeam(t *testing.T) {
@@ -96,6 +101,7 @@ func TestTemplateService_Get_WrongTeam(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 
 	templateRepo.AssertExpectations(t)
+	// versionRepo should not have been called since team check failed first.
 }
 
 func TestTemplateService_Update_WithContentCreatesNewVersion(t *testing.T) {

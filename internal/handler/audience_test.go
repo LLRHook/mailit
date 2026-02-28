@@ -83,8 +83,10 @@ func TestAudienceHandler_List_Success(t *testing.T) {
 	mockSvc := new(mockpkg.MockAudienceService)
 	h := NewAudienceHandler(mockSvc)
 
-	expected := []dto.AudienceResponse{
-		{ID: uuid.New().String(), Name: "Audience 1"},
+	expected := &dto.ListResponse[dto.AudienceResponse]{
+		Data: []dto.AudienceResponse{
+			{ID: uuid.New().String(), Name: "Audience 1"},
+		},
 	}
 	mockSvc.On("List", mock.Anything, testutil.TestTeamID).Return(expected, nil)
 

@@ -101,7 +101,7 @@ export default function MetricsPage() {
 
   const totals = metricsData?.totals;
   const chartData = metricsData?.data ?? [];
-  const hasData = chartData.length > 0 && (totals?.sent ?? 0) > 0;
+  const hasData = chartData.length > 0;
 
   const periodLabel =
     period === "24h"

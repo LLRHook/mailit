@@ -96,8 +96,8 @@ func TestSegmentService_List(t *testing.T) {
 	resp, err := svc.List(ctx, teamID, aud.ID)
 
 	require.NoError(t, err)
-	assert.Len(t, resp, 1)
-	assert.Equal(t, "Active Users", resp[0].Name)
+	assert.Len(t, resp.Data, 1)
+	assert.Equal(t, "Active Users", resp.Data[0].Name)
 
 	segmentRepo.AssertExpectations(t)
 	audienceRepo.AssertExpectations(t)

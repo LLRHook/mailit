@@ -171,28 +171,160 @@ Pages: Overview, Emails, Domains, API Keys, Audiences, Templates, Broadcasts, We
 
 ## Deployment
 
-### Docker
+### Prerequisites
+
+- Docker & Docker Compose (4.0+)
+- A domain name you control
+- A server with public IP address
+- Ports 25, 587, 3000, and 8080 accessible (adjust as needed)
+
+### Docker Compose (Quick Start)
+
+1. Clone the repository and enter the directory:
+   ```bash
+   git clone https://github.com/mailit-dev/mailit.git
+   cd mailit
+   ```
+
+2. Create `.env` from the example and configure your settings:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your password, secrets, and domain
+   ```
+
+3. Run the setup script:
+   ```bash
+   chmod +x scripts/setup.sh scripts/generate-dkim.sh
+   ./scripts/setup.sh
+   ```
+
+   This will:
+   - Validate your environment variables
+   - Generate DKIM keys
+   - Start PostgreSQL, Redis, API, and Dashboard containers
+   - Run database migrations
+   - Create an admin account
+
+4. Configure DNS records (output by setup script):
+   ```
+   TXT    @                              v=spf1 a mx ip4:YOUR_IP ~all
+   TXT    mailit._domainkey             v=DKIM1; k=rsa; p=YOUR_PUBLIC_KEY
+   A      mail                          YOUR_IP
+   MX     @                             mail.yourdomain.com (priority 10)
+   ```
+
+5. Open the dashboard at `http://localhost:3000` and verify your domain
+
+### Manual Docker Compose
+
+If you prefer to run commands manually:
 
 ```bash
-# Build images
-make docker-build
+# Create environment file
+cp .env.example .env
+# Edit .env with your settings
 
-# Run with Docker Compose
+# Generate DKIM keys
+./scripts/generate-dkim.sh
+
+# Start all services (PostgreSQL, Redis, API, Dashboard)
 docker compose up -d
+
+# Wait for services to be healthy
+sleep 10
+
+# Run database migrations
+docker compose exec -T mailit-api mailit migrate --up
+
+# Create admin account
+docker compose exec -T mailit-api mailit setup
+
+# View logs
+docker compose logs -f mailit-api
 ```
 
-The API image exposes ports 8080 (HTTP), 25 (SMTP inbound), and 587 (submission).
+### Manage Services
 
-### Kubernetes
+```bash
+# View logs
+docker compose logs -f
 
-A Helm chart is included:
+# Stop all services
+docker compose down
+
+# Stop and remove all data (WARNING: destructive)
+docker compose down -v
+
+# Restart API server
+docker compose restart mailit-api
+
+# Update to latest code and rebuild
+git pull
+docker compose up -d --build
+```
+
+### Environment Variables Reference
+
+See `.env.example` for comprehensive configuration documentation. Key production variables:
+
+- `POSTGRES_PASSWORD` — Database password (change from default)
+- `JWT_SECRET` — API authentication secret (min 32 chars)
+- `NEXTAUTH_SECRET` — Dashboard auth secret (min 32 chars)
+- `MAILIT_DOMAIN` — Your mail server FQDN (e.g., mail.yourdomain.com)
+- `DKIM_MASTER_KEY` — 32-byte hex key for DKIM encryption
+- `NEXT_PUBLIC_API_URL` — API URL as seen by browser (for reverse proxy)
+- `NEXTAUTH_URL` — Dashboard URL (for reverse proxy)
+
+### Production Recommendations
+
+1. **Reverse Proxy** — Use Nginx or Caddy for TLS termination:
+   - Proxy `mail.yourdomain.com:443` → `localhost:8080` (API)
+   - Proxy `yourdomain.com:443` → `localhost:3000` (Dashboard)
+   - Enable HTTPS with Let's Encrypt
+
+2. **Database Backups** — Regular backups of PostgreSQL:
+   ```bash
+   docker compose exec -T postgres pg_dump -U mailit mailit > backup.sql
+   docker compose exec -T postgres pg_restore -U mailit mailit < backup.sql
+   ```
+
+3. **Monitoring** — Monitor container health:
+   ```bash
+   docker compose ps     # Check service status
+   docker compose logs   # View logs
+   ```
+
+4. **Resource Limits** — Set memory/CPU limits in docker-compose.yml
+   ```yaml
+   mailit-api:
+     deploy:
+       resources:
+         limits:
+           cpus: '2'
+           memory: 1G
+   ```
+
+5. **Data Persistence** — Ensure volumes are on reliable storage:
+   - `mailit-data` — Attachment storage
+   - `postgres-data` — Database files
+   - `redis-data` — Cache and job queue
+
+### Kubernetes (Helm)
+
+A Helm chart is included for Kubernetes deployments:
 
 ```bash
 helm install mailit deploy/helm/mailit \
-  --set database.password=your-password \
-  --set auth.jwtSecret=your-secret \
-  --set dkim.masterEncryptionKey=your-32-byte-hex-key
+  --set database.password=$(openssl rand -base64 32) \
+  --set auth.jwtSecret=$(openssl rand -base64 32) \
+  --set auth.nextauthSecret=$(openssl rand -base64 32) \
+  --set dkim.masterEncryptionKey=$(openssl rand -hex 16) \
+  --set domain=mail.yourdomain.com \
+  --set ingress.enabled=true \
+  --set ingress.host=mail.yourdomain.com
 ```
+
+See `deploy/helm/mailit/values.yaml` for all available Helm options.
 
 ## DNS Setup
 

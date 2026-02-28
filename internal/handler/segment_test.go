@@ -71,8 +71,10 @@ func TestSegmentHandler_List_Success(t *testing.T) {
 	h := NewSegmentHandler(mockSvc)
 
 	audienceID := uuid.New()
-	expected := []dto.SegmentResponse{
-		{ID: uuid.New().String(), Name: "Segment 1"},
+	expected := &dto.ListResponse[dto.SegmentResponse]{
+		Data: []dto.SegmentResponse{
+			{ID: uuid.New().String(), Name: "Segment 1"},
+		},
 	}
 	mockSvc.On("List", mock.Anything, testutil.TestTeamID, audienceID).Return(expected, nil)
 

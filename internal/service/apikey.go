@@ -16,7 +16,7 @@ import (
 // APIKeyService defines operations for managing API keys.
 type APIKeyService interface {
 	Create(ctx context.Context, teamID uuid.UUID, req *dto.CreateAPIKeyRequest) (*dto.APIKeyResponse, error)
-	List(ctx context.Context, teamID uuid.UUID) ([]dto.APIKeyResponse, error)
+	List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.APIKeyResponse], error)
 	Delete(ctx context.Context, teamID uuid.UUID, apiKeyID uuid.UUID) error
 }
 
@@ -88,7 +88,7 @@ func (s *apiKeyService) Create(ctx context.Context, teamID uuid.UUID, req *dto.C
 	}, nil
 }
 
-func (s *apiKeyService) List(ctx context.Context, teamID uuid.UUID) ([]dto.APIKeyResponse, error) {
+func (s *apiKeyService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.APIKeyResponse], error) {
 	keys, err := s.apiKeyRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("listing API keys: %w", err)
@@ -105,7 +105,7 @@ func (s *apiKeyService) List(ctx context.Context, teamID uuid.UUID) ([]dto.APIKe
 		})
 	}
 
-	return responses, nil
+	return &dto.ListResponse[dto.APIKeyResponse]{Data: responses}, nil
 }
 
 func (s *apiKeyService) Delete(ctx context.Context, teamID uuid.UUID, apiKeyID uuid.UUID) error {

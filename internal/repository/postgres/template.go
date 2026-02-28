@@ -74,10 +74,12 @@ func (r *templateRepository) List(ctx context.Context, teamID uuid.UUID, limit, 
 		return nil, 0, fmt.Errorf("count templates: %w", err)
 	}
 
-	query := fmt.Sprintf(`
-		SELECT %s FROM templates WHERE team_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3`, templateColumns)
+	query := `
+		SELECT t.id, t.team_id, t.name, t.description, t.created_at, t.updated_at,
+			(SELECT COUNT(*) FROM template_versions tv WHERE tv.template_id = t.id) AS version_count
+		FROM templates t WHERE t.team_id = $1
+		ORDER BY t.created_at DESC
+		LIMIT $2 OFFSET $3`
 
 	rows, err := r.pool.Query(ctx, query, teamID, limit, offset)
 	if err != nil {
@@ -87,7 +89,7 @@ func (r *templateRepository) List(ctx context.Context, teamID uuid.UUID, limit, 
 
 	templates, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (model.Template, error) {
 		var t model.Template
-		err := row.Scan(&t.ID, &t.TeamID, &t.Name, &t.Description, &t.CreatedAt, &t.UpdatedAt)
+		err := row.Scan(&t.ID, &t.TeamID, &t.Name, &t.Description, &t.CreatedAt, &t.UpdatedAt, &t.VersionCount)
 		return t, err
 	})
 	if err != nil {

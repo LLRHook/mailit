@@ -338,12 +338,12 @@ func (s *domainService) buildDomainResponse(domain *model.Domain, records []mode
 	}
 
 	return &dto.DomainResponse{
-		ID:        domain.ID.String(),
-		Name:      domain.Name,
-		Status:    domain.Status,
-		Region:    domain.Region,
-		Records:   dnsRecords,
-		CreatedAt: domain.CreatedAt.Format(time.RFC3339),
+		ID:         domain.ID.String(),
+		Name:       domain.Name,
+		Status:     domain.Status,
+		Region:     domain.Region,
+		DNSRecords: dnsRecords,
+		CreatedAt:  domain.CreatedAt.Format(time.RFC3339),
 	}
 }
 

@@ -62,8 +62,8 @@ func TestTopicService_List(t *testing.T) {
 	resp, err := svc.List(ctx, teamID)
 
 	require.NoError(t, err)
-	assert.Len(t, resp, 1)
-	assert.Equal(t, "Monthly Newsletter", resp[0].Name)
+	assert.Len(t, resp.Data, 1)
+	assert.Equal(t, "Monthly Newsletter", resp.Data[0].Name)
 
 	topicRepo.AssertExpectations(t)
 }

@@ -16,7 +16,7 @@ import (
 // WebhookService defines operations for managing webhook endpoints.
 type WebhookService interface {
 	Create(ctx context.Context, teamID uuid.UUID, req *dto.CreateWebhookRequest) (*dto.WebhookResponse, error)
-	List(ctx context.Context, teamID uuid.UUID) ([]dto.WebhookResponse, error)
+	List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.WebhookResponse], error)
 	Get(ctx context.Context, teamID uuid.UUID, webhookID uuid.UUID) (*dto.WebhookResponse, error)
 	Update(ctx context.Context, teamID uuid.UUID, webhookID uuid.UUID, req *dto.UpdateWebhookRequest) (*dto.WebhookResponse, error)
 	Delete(ctx context.Context, teamID uuid.UUID, webhookID uuid.UUID) error
@@ -64,7 +64,7 @@ func (s *webhookService) Create(ctx context.Context, teamID uuid.UUID, req *dto.
 	return webhookToResponse(webhook), nil
 }
 
-func (s *webhookService) List(ctx context.Context, teamID uuid.UUID) ([]dto.WebhookResponse, error) {
+func (s *webhookService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.WebhookResponse], error) {
 	webhooks, err := s.webhookRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("listing webhooks: %w", err)
@@ -75,7 +75,7 @@ func (s *webhookService) List(ctx context.Context, teamID uuid.UUID) ([]dto.Webh
 		responses = append(responses, *webhookToResponse(&w))
 	}
 
-	return responses, nil
+	return &dto.ListResponse[dto.WebhookResponse]{Data: responses}, nil
 }
 
 func (s *webhookService) Get(ctx context.Context, teamID uuid.UUID, webhookID uuid.UUID) (*dto.WebhookResponse, error) {

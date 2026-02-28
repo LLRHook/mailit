@@ -43,7 +43,7 @@ func TestDomainService_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "example.com", resp.Name)
 	assert.Equal(t, model.DomainStatusPending, resp.Status)
-	assert.Len(t, resp.Records, 5)
+	assert.Len(t, resp.DNSRecords, 5)
 
 	domainRepo.AssertExpectations(t)
 	dnsRepo.AssertExpectations(t)

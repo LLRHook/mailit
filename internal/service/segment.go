@@ -16,7 +16,7 @@ import (
 // SegmentService defines operations for managing audience segments.
 type SegmentService interface {
 	Create(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID, req *dto.CreateSegmentRequest) (*dto.SegmentResponse, error)
-	List(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) ([]dto.SegmentResponse, error)
+	List(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) (*dto.ListResponse[dto.SegmentResponse], error)
 	Update(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID, segmentID uuid.UUID, req *dto.UpdateSegmentRequest) (*dto.SegmentResponse, error)
 	Delete(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID, segmentID uuid.UUID) error
 }
@@ -79,7 +79,7 @@ func (s *segmentService) Create(ctx context.Context, teamID uuid.UUID, audienceI
 	return segmentToResponse(segment), nil
 }
 
-func (s *segmentService) List(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) ([]dto.SegmentResponse, error) {
+func (s *segmentService) List(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) (*dto.ListResponse[dto.SegmentResponse], error) {
 	if err := s.verifyAudienceOwnership(ctx, teamID, audienceID); err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (s *segmentService) List(ctx context.Context, teamID uuid.UUID, audienceID 
 		responses = append(responses, *segmentToResponse(&seg))
 	}
 
-	return responses, nil
+	return &dto.ListResponse[dto.SegmentResponse]{Data: responses}, nil
 }
 
 func (s *segmentService) Update(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID, segmentID uuid.UUID, req *dto.UpdateSegmentRequest) (*dto.SegmentResponse, error) {

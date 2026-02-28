@@ -130,9 +130,12 @@ func (m *MockAPIKeyService) Create(ctx context.Context, teamID uuid.UUID, req *d
 	}
 	return args.Get(0).(*dto.APIKeyResponse), args.Error(1)
 }
-func (m *MockAPIKeyService) List(ctx context.Context, teamID uuid.UUID) ([]dto.APIKeyResponse, error) {
+func (m *MockAPIKeyService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.APIKeyResponse], error) {
 	args := m.Called(ctx, teamID)
-	return args.Get(0).([]dto.APIKeyResponse), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ListResponse[dto.APIKeyResponse]), args.Error(1)
 }
 func (m *MockAPIKeyService) Delete(ctx context.Context, teamID uuid.UUID, apiKeyID uuid.UUID) error {
 	return m.Called(ctx, teamID, apiKeyID).Error(0)
@@ -149,9 +152,12 @@ func (m *MockAudienceService) Create(ctx context.Context, teamID uuid.UUID, req 
 	}
 	return args.Get(0).(*dto.AudienceResponse), args.Error(1)
 }
-func (m *MockAudienceService) List(ctx context.Context, teamID uuid.UUID) ([]dto.AudienceResponse, error) {
+func (m *MockAudienceService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.AudienceResponse], error) {
 	args := m.Called(ctx, teamID)
-	return args.Get(0).([]dto.AudienceResponse), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ListResponse[dto.AudienceResponse]), args.Error(1)
 }
 func (m *MockAudienceService) Get(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) (*dto.AudienceResponse, error) {
 	args := m.Called(ctx, teamID, audienceID)
@@ -211,9 +217,12 @@ func (m *MockContactPropertyService) Create(ctx context.Context, teamID uuid.UUI
 	}
 	return args.Get(0).(*dto.ContactPropertyResponse), args.Error(1)
 }
-func (m *MockContactPropertyService) List(ctx context.Context, teamID uuid.UUID) ([]dto.ContactPropertyResponse, error) {
+func (m *MockContactPropertyService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.ContactPropertyResponse], error) {
 	args := m.Called(ctx, teamID)
-	return args.Get(0).([]dto.ContactPropertyResponse), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ListResponse[dto.ContactPropertyResponse]), args.Error(1)
 }
 func (m *MockContactPropertyService) Update(ctx context.Context, teamID uuid.UUID, propertyID uuid.UUID, req *dto.UpdateContactPropertyRequest) (*dto.ContactPropertyResponse, error) {
 	args := m.Called(ctx, teamID, propertyID, req)
@@ -237,9 +246,12 @@ func (m *MockTopicService) Create(ctx context.Context, teamID uuid.UUID, req *dt
 	}
 	return args.Get(0).(*dto.TopicResponse), args.Error(1)
 }
-func (m *MockTopicService) List(ctx context.Context, teamID uuid.UUID) ([]dto.TopicResponse, error) {
+func (m *MockTopicService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.TopicResponse], error) {
 	args := m.Called(ctx, teamID)
-	return args.Get(0).([]dto.TopicResponse), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ListResponse[dto.TopicResponse]), args.Error(1)
 }
 func (m *MockTopicService) Update(ctx context.Context, teamID uuid.UUID, topicID uuid.UUID, req *dto.UpdateTopicRequest) (*dto.TopicResponse, error) {
 	args := m.Called(ctx, teamID, topicID, req)
@@ -263,9 +275,12 @@ func (m *MockSegmentService) Create(ctx context.Context, teamID uuid.UUID, audie
 	}
 	return args.Get(0).(*dto.SegmentResponse), args.Error(1)
 }
-func (m *MockSegmentService) List(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) ([]dto.SegmentResponse, error) {
+func (m *MockSegmentService) List(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID) (*dto.ListResponse[dto.SegmentResponse], error) {
 	args := m.Called(ctx, teamID, audienceID)
-	return args.Get(0).([]dto.SegmentResponse), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ListResponse[dto.SegmentResponse]), args.Error(1)
 }
 func (m *MockSegmentService) Update(ctx context.Context, teamID uuid.UUID, audienceID uuid.UUID, segmentID uuid.UUID, req *dto.UpdateSegmentRequest) (*dto.SegmentResponse, error) {
 	args := m.Called(ctx, teamID, audienceID, segmentID, req)
@@ -296,12 +311,12 @@ func (m *MockTemplateService) List(ctx context.Context, teamID uuid.UUID, params
 	}
 	return args.Get(0).(*dto.PaginatedResponse[dto.TemplateResponse]), args.Error(1)
 }
-func (m *MockTemplateService) Get(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateResponse, error) {
+func (m *MockTemplateService) Get(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID) (*dto.TemplateDetailResponse, error) {
 	args := m.Called(ctx, teamID, templateID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*dto.TemplateResponse), args.Error(1)
+	return args.Get(0).(*dto.TemplateDetailResponse), args.Error(1)
 }
 func (m *MockTemplateService) Update(ctx context.Context, teamID uuid.UUID, templateID uuid.UUID, req *dto.UpdateTemplateRequest) (*dto.TemplateResponse, error) {
 	args := m.Called(ctx, teamID, templateID, req)
@@ -375,9 +390,12 @@ func (m *MockWebhookService) Create(ctx context.Context, teamID uuid.UUID, req *
 	}
 	return args.Get(0).(*dto.WebhookResponse), args.Error(1)
 }
-func (m *MockWebhookService) List(ctx context.Context, teamID uuid.UUID) ([]dto.WebhookResponse, error) {
+func (m *MockWebhookService) List(ctx context.Context, teamID uuid.UUID) (*dto.ListResponse[dto.WebhookResponse], error) {
 	args := m.Called(ctx, teamID)
-	return args.Get(0).([]dto.WebhookResponse), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ListResponse[dto.WebhookResponse]), args.Error(1)
 }
 func (m *MockWebhookService) Get(ctx context.Context, teamID uuid.UUID, webhookID uuid.UUID) (*dto.WebhookResponse, error) {
 	args := m.Called(ctx, teamID, webhookID)

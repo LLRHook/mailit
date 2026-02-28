@@ -46,7 +46,7 @@ export default function DomainDetailPage() {
       api.get(`/domains/${params.domainId}`).then((res) => res.data),
   });
 
-  const domain: DomainDetail | undefined = data?.data;
+  const domain: DomainDetail | undefined = data;
 
   const verifyMutation = useMutation({
     mutationFn: () =>

@@ -9,7 +9,7 @@ type DomainResponse struct {
 	Name      string              `json:"name"`
 	Status    string              `json:"status"`
 	Region    *string             `json:"region,omitempty"`
-	Records   []DNSRecordResponse `json:"records"`
+	DNSRecords []DNSRecordResponse `json:"dns_records"`
 	CreatedAt string              `json:"created_at"`
 }
 
