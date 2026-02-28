@@ -26,6 +26,7 @@ type Config struct {
 	APIKeyLookup   middleware.APIKeyLookup
 	APIKeyLastUsed middleware.APIKeyLastUsedUpdate
 	Handlers       *handler.Handlers
+	HealthHandler  *handler.HealthHandler
 	Logger         *slog.Logger
 }
 
@@ -45,12 +46,9 @@ func New(cfg Config) *http.Server {
 		MaxAge:           300,
 	}))
 
-	// Health check (no auth)
-	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
+	// Health and readiness checks (no auth)
+	r.Get("/healthz", cfg.HealthHandler.Healthz)
+	r.Get("/readyz", cfg.HealthHandler.Readyz)
 
 	// Auth middleware
 	authMw := middleware.Auth(cfg.JWTSecret, cfg.APIKeyPrefix, cfg.APIKeyLookup, cfg.APIKeyLastUsed)
