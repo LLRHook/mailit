@@ -41,8 +41,14 @@ func NewDNSResolver(nameserver string, timeout time.Duration) *DNSResolver {
 	if nameserver == "" || nameserver == "system" {
 		nameserver = getSystemResolver()
 	}
-	if !strings.Contains(nameserver, ":") {
-		nameserver = nameserver + ":53"
+	// Ensure the nameserver has a port. IPv6 addresses must be wrapped in brackets.
+	if _, _, err := net.SplitHostPort(nameserver); err != nil {
+		// No port — add one. Wrap IPv6 addresses in brackets.
+		if strings.Contains(nameserver, ":") {
+			nameserver = "[" + nameserver + "]:53"
+		} else {
+			nameserver = nameserver + ":53"
+		}
 	}
 	return &DNSResolver{
 		nameserver: nameserver,
@@ -55,9 +61,9 @@ func NewDNSResolver(nameserver string, timeout time.Duration) *DNSResolver {
 func getSystemResolver() string {
 	config, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err == nil && len(config.Servers) > 0 {
-		return config.Servers[0] + ":53"
+		return config.Servers[0]
 	}
-	return "8.8.8.8:53"
+	return "8.8.8.8"
 }
 
 // query performs a DNS query for the given name and type.

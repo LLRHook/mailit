@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+// SenderMetrics is an optional interface for recording SMTP metrics.
+// Pass nil to disable metrics.
+type SenderMetrics interface {
+	ObserveEmailSendDuration(seconds float64)
+	IncSMTPConnection(mxHost, result string)
+}
+
 // Sender handles sending emails via SMTP directly to recipient MX servers.
 type Sender struct {
 	hostname       string
@@ -28,6 +35,16 @@ type Sender struct {
 	maxRecipients  int
 	resolver       *DNSResolver
 	logger         *slog.Logger
+	circuitBreaker *CircuitBreaker
+	metrics        SenderMetrics
+
+	// Relay mode (SES)
+	relayMode     string // "direct" or "relay"
+	relayHost     string
+	relayPort     int
+	relayUsername string
+	relayPassword string
+	relayTLS      string // "starttls" or "tls"
 }
 
 // SenderConfig configures the SMTP sender.
@@ -38,6 +55,15 @@ type SenderConfig struct {
 	ConnectTimeout time.Duration
 	SendTimeout    time.Duration
 	MaxRecipients  int
+	Metrics        SenderMetrics
+
+	// Relay mode fields
+	RelayMode     string
+	RelayHost     string
+	RelayPort     int
+	RelayUsername string
+	RelayPassword string
+	RelayTLS      string
 }
 
 // OutgoingMessage holds all the data needed to build and send an email.
@@ -97,6 +123,19 @@ func NewSender(cfg SenderConfig, resolver *DNSResolver, logger *slog.Logger) *Se
 		cfg.HeloDomain = cfg.Hostname
 	}
 
+	relayMode := cfg.RelayMode
+	if relayMode == "" {
+		relayMode = "direct"
+	}
+	relayPort := cfg.RelayPort
+	if relayPort == 0 {
+		relayPort = 587
+	}
+	relayTLS := cfg.RelayTLS
+	if relayTLS == "" {
+		relayTLS = "starttls"
+	}
+
 	return &Sender{
 		hostname:       cfg.Hostname,
 		heloDomain:     cfg.HeloDomain,
@@ -106,6 +145,14 @@ func NewSender(cfg SenderConfig, resolver *DNSResolver, logger *slog.Logger) *Se
 		maxRecipients:  cfg.MaxRecipients,
 		resolver:       resolver,
 		logger:         logger,
+		circuitBreaker: NewCircuitBreaker(defaultFailureThreshold, defaultResetTimeout),
+		metrics:        cfg.Metrics,
+		relayMode:      relayMode,
+		relayHost:      cfg.RelayHost,
+		relayPort:      relayPort,
+		relayUsername:  cfg.RelayUsername,
+		relayPassword:  cfg.RelayPassword,
+		relayTLS:       relayTLS,
 	}
 }
 
@@ -137,17 +184,20 @@ func (s *Sender) SendEmail(ctx context.Context, msg *OutgoingMessage) (*SendResu
 		}
 	}
 
-	// Group recipients by domain.
-	domainRecipients := groupByDomain(allRecipients)
-
 	result := &SendResult{
 		MessageID:  msg.MessageID,
 		Recipients: make(map[string]RecipientResult),
 	}
 
-	// Deliver to each domain.
-	for domain, recipients := range domainRecipients {
-		s.deliverToDomain(ctx, domain, recipients, msg.From, signedMessage, result)
+	if s.relayMode == "relay" {
+		// Deliver through a relay (e.g. SES) instead of direct MX delivery.
+		s.deliverViaRelay(ctx, allRecipients, msg.From, signedMessage, result)
+	} else {
+		// Direct delivery: group recipients by domain.
+		domainRecipients := groupByDomain(allRecipients)
+		for domain, recipients := range domainRecipients {
+			s.deliverToDomain(ctx, domain, recipients, msg.From, signedMessage, result)
+		}
 	}
 
 	return result, nil
@@ -183,6 +233,20 @@ func groupByDomain(recipients []string) map[string][]string {
 		groups[domain] = append(groups[domain], addr)
 	}
 	return groups
+}
+
+// deliverViaRelay sends email through a configured SMTP relay (e.g. SES, Mailgun).
+func (s *Sender) deliverViaRelay(
+	ctx context.Context,
+	recipients []string,
+	from string,
+	message []byte,
+	result *SendResult,
+) {
+	addr := fmt.Sprintf("%s:%d", s.relayHost, s.relayPort)
+	for _, rcpt := range recipients {
+		s.deliverToHost(ctx, addr, from, []string{rcpt}, message, result)
+	}
 }
 
 // deliverToDomain resolves MX records for the domain and attempts delivery
@@ -227,6 +291,15 @@ func (s *Sender) deliverToDomain(
 		default:
 		}
 
+		// Circuit breaker: skip MX hosts that are in open state.
+		if !s.circuitBreaker.Allow(mx.Host) {
+			s.logger.Warn("circuit breaker open, skipping MX host",
+				"domain", domain,
+				"mx_host", mx.Host,
+			)
+			continue
+		}
+
 		s.logger.Debug("attempting delivery",
 			"domain", domain,
 			"mx_host", mx.Host,
@@ -236,8 +309,10 @@ func (s *Sender) deliverToDomain(
 
 		err := s.deliverToHost(ctx, mx.Host, from, recipients, message, result)
 		if err == nil {
+			s.circuitBreaker.RecordSuccess(mx.Host)
 			return // Successfully delivered.
 		}
+		s.circuitBreaker.RecordFailure(mx.Host)
 		lastErr = err
 		s.logger.Warn("delivery attempt failed",
 			"mx_host", mx.Host,
@@ -267,12 +342,14 @@ func (s *Sender) deliverToHost(
 	message []byte,
 	result *SendResult,
 ) error {
+	start := time.Now()
 	addr := host + ":25"
 
 	// Connect with timeout.
 	dialer := net.Dialer{Timeout: s.connectTimeout}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
+		s.recordSMTPConnection(host, "connect_error")
 		return fmt.Errorf("connecting to %s: %w", addr, err)
 	}
 
@@ -388,7 +465,23 @@ func (s *Sender) deliverToHost(
 	}
 
 	_ = client.Quit()
+	s.recordSMTPConnection(host, "success")
+	s.recordEmailSendDuration(time.Since(start).Seconds())
 	return nil
+}
+
+// recordSMTPConnection records an SMTP connection metric if metrics are configured.
+func (s *Sender) recordSMTPConnection(host, result string) {
+	if s.metrics != nil {
+		s.metrics.IncSMTPConnection(host, result)
+	}
+}
+
+// recordEmailSendDuration records email send duration if metrics are configured.
+func (s *Sender) recordEmailSendDuration(seconds float64) {
+	if s.metrics != nil {
+		s.metrics.ObserveEmailSendDuration(seconds)
+	}
 }
 
 // BuildMessage constructs an RFC 5322 MIME message from the outgoing message.
