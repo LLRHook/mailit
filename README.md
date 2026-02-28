@@ -1,48 +1,175 @@
-# MailIt
+<p align="center">
+  <h1 align="center">MailIt</h1>
+  <p align="center">
+    Open-source, self-hosted email platform for developers.
+    <br />
+    Send transactional emails, manage contacts, and broadcast campaigns — all from your own infrastructure.
+  </p>
+</p>
 
-Self-hosted email platform for developers. Send transactional emails, manage contacts, and broadcast campaigns — all from your own infrastructure.
+<p align="center">
+  <a href="https://github.com/LLRHook/mailit/actions/workflows/ci.yml"><img src="https://github.com/LLRHook/mailit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/LLRHook/mailit/releases"><img src="https://img.shields.io/github/v/release/LLRHook/mailit?label=release" alt="Release"></a>
+  <a href="https://github.com/LLRHook/mailit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/LLRHook/mailit" alt="License"></a>
+  <a href="https://goreportcard.com/report/github.com/mailit-dev/mailit"><img src="https://goreportcard.com/badge/github.com/mailit-dev/mailit" alt="Go Report Card"></a>
+</p>
 
-MailIt ships as a single Go binary that runs an HTTP API, background workers, and an inbound SMTP server. A Next.js dashboard provides a web UI for managing domains, templates, audiences, and more.
+---
+
+## Why MailIt?
+
+Services like Resend, Postmark, and SendGrid are great — until you need full control over your email infrastructure, want to avoid per-email pricing, or need to keep data on your own servers.
+
+MailIt gives you a production-grade email platform that you own entirely:
+
+- **No per-email fees** — send as much as your server can handle
+- **Your data stays yours** — self-hosted, no third-party data sharing
+- **Resend-compatible API** — familiar `re_` prefixed API keys, similar endpoint structure
+- **Single binary** — one Go process runs the API, background workers, and SMTP server
+- **Dashboard included** — Next.js web UI for managing everything visually
 
 ## Features
 
 - **Transactional email** — Send via REST API with DKIM signing and automatic retries
-- **Direct MX delivery** — Connects directly to recipient mail servers (no relay required)
-- **Inbound SMTP** — Receive bounces and replies on your own domain
+- **Direct MX delivery** — Connects directly to recipient mail servers (no relay needed)
+- **Inbound SMTP** — Receive and process incoming emails on your own domain
 - **Contact management** — Audiences, contacts, segments, and custom properties
-- **Broadcasts** — Send campaigns to audience segments with template support
-- **Templates** — HTML email templates with versioning and publish flow
-- **Webhooks** — Get notified of delivery events (sent, bounced, complained) with signed payloads
-- **DKIM signing** — Automatic DKIM key generation and DNS record guidance
+- **Broadcasts** — Send campaigns to audience segments with template personalization
+- **Templates** — HTML email templates with versioning and a publish workflow
+- **Webhooks** — Signed payloads for delivery events (`email.sent`, `email.bounced`, `email.inbound`, etc.)
+- **DKIM signing** — Automatic key generation and DNS record guidance
 - **Domain verification** — SPF, DKIM, and MX record verification
-- **API keys** — Scoped API key authentication (Resend-compatible `re_` prefix)
+- **Open & click tracking** — Per-recipient tracking with automatic pixel/link injection
+- **Suppression lists** — Auto-suppress hard bounces and spam complaints
+- **Idempotent sends** — Replay-safe API with 24-hour idempotency keys
 - **Rate limiting** — Per-endpoint rate limiting backed by Redis
 - **Dashboard** — Next.js 15 web UI with dark theme
 
-## Architecture
+## How It Works
+
+MailIt runs as a single Go binary containing three servers — an HTTP API, an asynq background worker, and an inbound SMTP server — backed by PostgreSQL and Redis.
+
+### Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  mailit binary                   │
-│                                                  │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────┐  │
-│  │ HTTP API │  │ Asynq Workers│  │ SMTP Server│  │
-│  │ (chi)    │  │ (background) │  │ (inbound)  │  │
-│  └────┬─────┘  └──────┬───────┘  └─────┬─────┘  │
-│       │               │                │         │
-│       └───────┬───────┴────────┬───────┘         │
-│               │                │                 │
-│         ┌─────┴─────┐   ┌─────┴─────┐           │
-│         │ PostgreSQL │   │   Redis   │           │
-│         │  (pgx/v5)  │   │ (asynq)  │           │
-│         └────────────┘   └───────────┘           │
-└─────────────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────────────────┐
+                        │                    mailit binary                     │
+                        │                                                      │
+  REST API clients ───▶ │  ┌──────────┐  ┌───────────────┐  ┌──────────────┐  │ ◀── Incoming mail
+                        │  │ HTTP API │  │ Asynq Workers │  │ SMTP Server  │  │
+                        │  │  (chi)   │  │  (background) │  │  (inbound)   │  │
+                        │  └────┬─────┘  └───────┬───────┘  └──────┬───────┘  │
+                        │       │                │                 │           │
+                        │       └────────┬───────┴─────────┬──────┘           │
+                        │                │                 │                   │
+                        │          ┌─────┴──────┐   ┌─────┴──────┐            │
+                        │          │ PostgreSQL │   │   Redis    │            │
+                        │          │   (pgx)    │   │  (asynq)   │            │
+                        │          └────────────┘   └────────────┘            │
+                        └──────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────┐
-│              Next.js Dashboard                   │
-│          (separate process / container)          │
-└─────────────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────────────────┐
+                        │              Next.js Dashboard (port 3000)           │
+                        │          Manages domains, templates, audiences       │
+                        └──────────────────────────────────────────────────────┘
 ```
+
+### Sending an Email (Transactional Flow)
+
+When you call `POST /emails`, here's what happens end to end:
+
+```
+API Request                     Background Worker                   Recipient
+    │                                  │                                │
+    ▼                                  │                                │
+ 1. Validate request                   │                                │
+ 2. Check idempotency (Redis)          │                                │
+ 3. Check suppression list             │                                │
+ 4. Create email record (PG)           │                                │
+ 5. Enqueue "email:send" task ────────▶│                                │
+    │                                  ▼                                │
+    │                           6. Fetch email from DB                  │
+    │                           7. Look up DKIM key for domain          │
+    │                           8. Inject tracking (open pixel, links)  │
+    │                           9. Build MIME message                   │
+    │                          10. Sign with DKIM (RSA-SHA256)          │
+    │                          11. Resolve MX records (DNS)             │
+    │                          12. Connect to MX → STARTTLS → deliver ─▶│
+    │                                  │                                │
+    │                          13. On success: dispatch "email.sent" webhook
+    │                              On 5xx: classify bounce → suppress → webhook
+    │                              On 4xx: retry with exponential backoff
+```
+
+**Key details:**
+- Recipients are checked against the suppression list before sending — bounced/complained addresses are automatically blocked
+- DKIM private keys are encrypted with AES-256-GCM and stored in PostgreSQL
+- MX records are resolved per-domain, tried in priority order, with A/AAAA fallback per RFC 5321
+- STARTTLS is attempted opportunistically by default (configurable to mandatory or off)
+- Each recipient gets individual delivery tracking — partial failures trigger retries only for failed recipients
+
+### Receiving Email (Inbound Flow)
+
+MailIt runs a go-smtp server that accepts incoming mail for your verified domains:
+
+```
+Sender's MX ──▶ Inbound SMTP (port 25)
+                     │
+                     ▼
+                1. RCPT TO: verify domain is registered + verified
+                2. DATA: parse MIME (headers, text, HTML, attachments)
+                3. Store attachments to disk/S3
+                4. Create InboundEmail record (PG)
+                5. Enqueue "inbound:process" task
+                     │
+                     ▼
+                Worker marks email processed
+                Dispatches "email.inbound" webhook
+```
+
+### Broadcasting to Audiences
+
+Broadcasts let you send campaigns to an audience (optionally filtered by segment):
+
+```
+POST /broadcasts/{id}/send
+         │
+         ▼
+    1. Validate broadcast (has audience, content, from address)
+    2. Set status → "sending"
+    3. Paginate contacts (500 at a time)
+    4. For each contact:
+       a. Substitute variables: {{contact.email}}, {{contact.first_name}}, etc.
+       b. Create individual Email record
+       c. Enqueue "email:send" task
+    5. Each email follows the standard transactional flow above
+```
+
+Templates with versioning can be attached to broadcasts — the published version's subject and body are used, with contact-specific variable substitution.
+
+### Webhook Delivery
+
+Every significant event dispatches a signed webhook:
+
+| Event | Trigger |
+|-------|---------|
+| `email.sent` | Recipient MX accepted the message |
+| `email.bounced` | Hard bounce (5xx) from recipient MX |
+| `email.failed` | Temporary failure (4xx) after retries exhausted |
+| `email.inbound` | Inbound email received and processed |
+
+Webhooks are signed with HMAC-SHA256 and include `X-Webhook-Signature` and `X-Webhook-Timestamp` headers for verification. Failed deliveries retry with exponential backoff (30s → 2m → 10m → 30m → 2h).
+
+### Bounce & Suppression
+
+MailIt automatically classifies bounces and maintains a suppression list:
+
+- **Hard bounce** (5xx) → address added to suppression list, no future sends
+- **Soft bounce** (4xx) → retried with backoff, not suppressed
+- **Spam complaint** → address suppressed immediately
+- **Special case**: 552 "mailbox full" is treated as a soft bounce (temporary)
+
+Every send checks the suppression list first — suppressed addresses are rejected before any SMTP connection is made.
 
 ## Quick Start
 
@@ -51,14 +178,17 @@ MailIt ships as a single Go binary that runs an HTTP API, background workers, an
 - Go 1.25+
 - PostgreSQL 16+
 - Redis 7+
-- Node.js 18+ (for the dashboard)
+- Node.js 20+ (for the dashboard)
 
 ### Local Development
 
 ```bash
-# Start PostgreSQL and Redis
+# Clone the repository
+git clone https://github.com/LLRHook/mailit.git
+cd mailit
+
+# Start PostgreSQL and Redis, then run the Go server
 make dev
-# This runs docker compose for dependencies, then starts the Go server
 
 # Or start dependencies separately
 docker compose -f docker-compose.dev.yml up -d postgres redis
@@ -68,40 +198,65 @@ go run ./cmd/mailit serve
 ### First-Run Setup
 
 ```bash
-# Run migrations and create admin user + DKIM keys
+# Run database migrations
 go run ./cmd/mailit migrate --up
+
+# Create admin user + generate DKIM keys
 go run ./cmd/mailit setup
 ```
 
-The setup wizard will prompt for admin credentials and generate DKIM keys with DNS records to configure.
+The setup wizard prompts for admin credentials and generates DKIM keys with the exact DNS records you need to configure.
 
 ### Docker Compose (Production)
 
 ```bash
-cp config/mailit.example.yaml config/mailit.yaml
-# Edit config/mailit.yaml with your settings
+# Configure environment
+cp .env.example .env
+# Edit .env with your passwords, secrets, and domain
 
-docker compose up -d
+# Run the setup script (validates config, generates DKIM, starts everything)
+chmod +x scripts/setup.sh scripts/generate-dkim.sh
+./scripts/setup.sh
 ```
+
+Or manually:
+
+```bash
+cp .env.example .env
+# Edit .env
+
+./scripts/generate-dkim.sh
+docker compose up -d
+sleep 10
+docker compose exec -T mailit-api mailit migrate --up
+docker compose exec -T mailit-api mailit setup
+```
+
+Open the dashboard at `http://localhost:3000`.
 
 ## Configuration
 
-MailIt uses a YAML config file with environment variable overrides. Copy the example config to get started:
-
-```bash
-cp config/mailit.example.yaml config/mailit.yaml
-```
-
-Every setting can be overridden with environment variables using the `MAILIT_` prefix:
+MailIt uses a YAML config file with environment variable overrides. Every setting can be overridden with the `MAILIT_` prefix:
 
 ```
-server.http_addr     → MAILIT_SERVER_HTTP_ADDR
-database.host        → MAILIT_DATABASE_HOST
-auth.jwt_secret      → MAILIT_AUTH_JWT_SECRET
-smtp_outbound.hostname → MAILIT_SMTP_OUTBOUND_HOSTNAME
+server.http_addr        → MAILIT_SERVER_HTTP_ADDR
+database.host           → MAILIT_DATABASE_HOST
+auth.jwt_secret         → MAILIT_AUTH_JWT_SECRET
+smtp_outbound.hostname  → MAILIT_SMTP_OUTBOUND_HOSTNAME
 ```
 
-See [`config/mailit.example.yaml`](config/mailit.example.yaml) for all available settings.
+See [`config/mailit.example.yaml`](config/mailit.example.yaml) for all settings with descriptions.
+
+### Key Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `POSTGRES_PASSWORD` | Database password |
+| `JWT_SECRET` | API authentication secret (min 32 chars) |
+| `NEXTAUTH_SECRET` | Dashboard auth secret (min 32 chars) |
+| `MAILIT_DOMAIN` | Your mail server FQDN (e.g., `mail.yourdomain.com`) |
+| `DKIM_MASTER_KEY` | 32-byte hex key for DKIM key encryption |
+| `NEXT_PUBLIC_API_URL` | API URL as seen by browser |
 
 ## API
 
@@ -159,7 +314,7 @@ mailit version                             Print version
 
 ## Dashboard
 
-The Next.js dashboard runs as a separate process on port 3000 (default).
+The Next.js dashboard runs as a separate process on port 3000.
 
 ```bash
 cd web
@@ -167,151 +322,34 @@ npm install
 npm run dev
 ```
 
-Pages: Overview, Emails, Domains, API Keys, Audiences, Templates, Broadcasts, Webhooks, Logs, Metrics, Settings.
+**Pages:** Overview, Emails, Domains, API Keys, Audiences, Templates, Broadcasts, Webhooks, Logs, Metrics, Settings.
+
+## DNS Setup
+
+For sending emails from your domain, configure these DNS records:
+
+| Type | Name | Value |
+|------|------|-------|
+| A | `mail.yourdomain.com` | `<your-server-ip>` |
+| MX | `yourdomain.com` | `mail.yourdomain.com` (priority 10) |
+| TXT | `yourdomain.com` | `v=spf1 include:mail.yourdomain.com ~all` |
+| TXT | `mailit._domainkey.yourdomain.com` | `v=DKIM1; k=rsa; p=<your-public-key>` |
+| PTR | `<your-server-ip>` | `mail.yourdomain.com` |
+
+Run `mailit setup` to generate DKIM keys and get the exact DNS record values.
 
 ## Deployment
 
-### Prerequisites
+### Docker Compose
 
-- Docker & Docker Compose (4.0+)
-- A domain name you control
-- A server with public IP address
-- Ports 25, 587, 3000, and 8080 accessible (adjust as needed)
+See the [Quick Start](#quick-start) section above. For production, ensure you:
 
-### Docker Compose (Quick Start)
-
-1. Clone the repository and enter the directory:
-   ```bash
-   git clone https://github.com/mailit-dev/mailit.git
-   cd mailit
-   ```
-
-2. Create `.env` from the example and configure your settings:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your password, secrets, and domain
-   ```
-
-3. Run the setup script:
-   ```bash
-   chmod +x scripts/setup.sh scripts/generate-dkim.sh
-   ./scripts/setup.sh
-   ```
-
-   This will:
-   - Validate your environment variables
-   - Generate DKIM keys
-   - Start PostgreSQL, Redis, API, and Dashboard containers
-   - Run database migrations
-   - Create an admin account
-
-4. Configure DNS records (output by setup script):
-   ```
-   TXT    @                              v=spf1 a mx ip4:YOUR_IP ~all
-   TXT    mailit._domainkey             v=DKIM1; k=rsa; p=YOUR_PUBLIC_KEY
-   A      mail                          YOUR_IP
-   MX     @                             mail.yourdomain.com (priority 10)
-   ```
-
-5. Open the dashboard at `http://localhost:3000` and verify your domain
-
-### Manual Docker Compose
-
-If you prefer to run commands manually:
-
-```bash
-# Create environment file
-cp .env.example .env
-# Edit .env with your settings
-
-# Generate DKIM keys
-./scripts/generate-dkim.sh
-
-# Start all services (PostgreSQL, Redis, API, Dashboard)
-docker compose up -d
-
-# Wait for services to be healthy
-sleep 10
-
-# Run database migrations
-docker compose exec -T mailit-api mailit migrate --up
-
-# Create admin account
-docker compose exec -T mailit-api mailit setup
-
-# View logs
-docker compose logs -f mailit-api
-```
-
-### Manage Services
-
-```bash
-# View logs
-docker compose logs -f
-
-# Stop all services
-docker compose down
-
-# Stop and remove all data (WARNING: destructive)
-docker compose down -v
-
-# Restart API server
-docker compose restart mailit-api
-
-# Update to latest code and rebuild
-git pull
-docker compose up -d --build
-```
-
-### Environment Variables Reference
-
-See `.env.example` for comprehensive configuration documentation. Key production variables:
-
-- `POSTGRES_PASSWORD` — Database password (change from default)
-- `JWT_SECRET` — API authentication secret (min 32 chars)
-- `NEXTAUTH_SECRET` — Dashboard auth secret (min 32 chars)
-- `MAILIT_DOMAIN` — Your mail server FQDN (e.g., mail.yourdomain.com)
-- `DKIM_MASTER_KEY` — 32-byte hex key for DKIM encryption
-- `NEXT_PUBLIC_API_URL` — API URL as seen by browser (for reverse proxy)
-- `NEXTAUTH_URL` — Dashboard URL (for reverse proxy)
-
-### Production Recommendations
-
-1. **Reverse Proxy** — Use Nginx or Caddy for TLS termination:
-   - Proxy `mail.yourdomain.com:443` → `localhost:8080` (API)
-   - Proxy `yourdomain.com:443` → `localhost:3000` (Dashboard)
-   - Enable HTTPS with Let's Encrypt
-
-2. **Database Backups** — Regular backups of PostgreSQL:
-   ```bash
-   docker compose exec -T postgres pg_dump -U mailit mailit > backup.sql
-   docker compose exec -T postgres pg_restore -U mailit mailit < backup.sql
-   ```
-
-3. **Monitoring** — Monitor container health:
-   ```bash
-   docker compose ps     # Check service status
-   docker compose logs   # View logs
-   ```
-
-4. **Resource Limits** — Set memory/CPU limits in docker-compose.yml
-   ```yaml
-   mailit-api:
-     deploy:
-       resources:
-         limits:
-           cpus: '2'
-           memory: 1G
-   ```
-
-5. **Data Persistence** — Ensure volumes are on reliable storage:
-   - `mailit-data` — Attachment storage
-   - `postgres-data` — Database files
-   - `redis-data` — Cache and job queue
+1. **Use a reverse proxy** (Nginx or Caddy) for TLS termination
+2. **Set strong secrets** in `.env` — never use defaults
+3. **Configure DNS** with SPF, DKIM, and PTR records
+4. **Open ports** 25 (SMTP), 587 (submission), 8080 (API), 3000 (dashboard)
 
 ### Kubernetes (Helm)
-
-A Helm chart is included for Kubernetes deployments:
 
 ```bash
 helm install mailit deploy/helm/mailit \
@@ -324,21 +362,16 @@ helm install mailit deploy/helm/mailit \
   --set ingress.host=mail.yourdomain.com
 ```
 
-See `deploy/helm/mailit/values.yaml` for all available Helm options.
+See [`deploy/helm/mailit/values.yaml`](deploy/helm/mailit/values.yaml) for all Helm options.
 
-## DNS Setup
+### Docker Images
 
-For sending emails from your domain, configure these DNS records:
+Pre-built multi-arch images (amd64 + arm64) are published to GitHub Container Registry on each release:
 
-| Type | Name | Value |
-|------|------|-------|
-| MX | `yourdomain.com` | `mail.yourdomain.com` |
-| TXT | `yourdomain.com` | `v=spf1 include:mail.yourdomain.com ~all` |
-| TXT | `mailit._domainkey.yourdomain.com` | `v=DKIM1; k=rsa; p=<your-public-key>` |
-| A | `mail.yourdomain.com` | `<your-server-ip>` |
-| PTR | `<your-server-ip>` | `mail.yourdomain.com` |
-
-Run `mailit setup` to generate DKIM keys and get the exact DNS record values.
+```
+ghcr.io/llrhook/mailit/api:<version>
+ghcr.io/llrhook/mailit/web:<version>
+```
 
 ## Development
 
@@ -351,7 +384,7 @@ make lint             # Run golangci-lint
 make test-coverage    # Generate coverage report
 ```
 
-## Project Structure
+### Project Structure
 
 ```
 cmd/mailit/              Entry point (serve/migrate/setup/version)
@@ -369,12 +402,46 @@ internal/
   smtp/                  Inbound SMTP server (go-smtp)
   webhook/               Webhook dispatcher
   worker/                Asynq task handlers
-db/migrations/           SQL migration files
+db/migrations/           SQL migration files (18 pairs)
 web/                     Next.js 15 dashboard
 deploy/                  Dockerfile, Helm chart, CI/CD
 config/                  Example configuration
 ```
 
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. **Fork** the repository
+2. **Create a branch** for your feature or fix
+3. **Write tests** — the project has 369 tests (314 Go + 55 frontend) and we'd like to keep coverage high
+4. **Run checks** before submitting:
+   ```bash
+   make test       # Go tests pass
+   make lint       # No lint errors
+   make test-web   # Frontend tests pass
+   ```
+5. **Open a pull request** against `main`
+
+### Development Setup
+
+- **Go 1.25** — backend
+- **Node.js 20** — frontend (Next.js dashboard)
+- **Docker** — for PostgreSQL and Redis in development
+- **golangci-lint** — Go linting
+
+### Areas Where Help Is Needed
+
+- Integration tests (testcontainers for PostgreSQL/Redis)
+- SMTP backend tests
+- Dashboard API wiring (currently uses placeholder data)
+- Documentation improvements
+- Bug reports and feature requests
+
 ## License
 
 MIT
+
+## Acknowledgments
+
+Built with [chi](https://github.com/go-chi/chi), [pgx](https://github.com/jackc/pgx), [asynq](https://github.com/hibiken/asynq), [go-smtp](https://github.com/emersion/go-smtp), [go-msgauth](https://github.com/emersion/go-msgauth), [Next.js](https://nextjs.org), and [shadcn/ui](https://ui.shadcn.com).
