@@ -95,6 +95,11 @@ func runServe(configPath string) {
 		os.Exit(1)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Set up structured logging.
 	logger := setupLogger(cfg.Logging)
 	slog.SetDefault(logger)
@@ -141,6 +146,14 @@ func runServe(configPath string) {
 		os.Exit(1)
 	}
 	logger.Info("connected to redis")
+
+	// Health handler (uses pool and redis for liveness checks).
+	healthHandler := handler.NewHealthHandler(
+		pool,
+		handler.PingFunc(func(ctx context.Context) error {
+			return rdb.Ping(ctx).Err()
+		}),
+	)
 
 	// Run auto-migrations if enabled.
 	if cfg.Database.AutoMigrate {
@@ -328,6 +341,7 @@ func runServe(configPath string) {
 		APIKeyLookup:   apiKeyLookup,
 		APIKeyLastUsed: apiKeyLastUsed,
 		Handlers:       handlers,
+		HealthHandler:  healthHandler,
 		Logger:         logger,
 	})
 
@@ -403,6 +417,7 @@ func runServe(configPath string) {
 	g.Go(func() error {
 		<-gctx.Done()
 		logger.Info("shutting down...")
+		healthHandler.SetReady(false)
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 		defer shutdownCancel()
