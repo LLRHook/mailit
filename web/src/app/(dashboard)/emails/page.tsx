@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { MailIcon, SendIcon, AlertTriangleIcon, EyeIcon, RefreshCwIcon } from "lucide-react";
+import { MailIcon, SendIcon, AlertTriangleIcon, EyeIcon, RefreshCwIcon, PauseIcon, PlayIcon } from "lucide-react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,12 +58,13 @@ const columns: ColumnDef<Email>[] = [
 ];
 
 export default function EmailsPage() {
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const router = useRouter();
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["emails"],
     queryFn: () => api.get("/emails").then((res) => res.data),
-    refetchInterval: 15_000,
+    refetchInterval: autoRefresh ? 15_000 : false,
   });
 
   const emails: Email[] = data?.data ?? [];
@@ -75,7 +77,31 @@ export default function EmailsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Emails" description="View and manage sent emails" />
+      <PageHeader title="Emails" description="View and manage sent emails">
+        <div className="flex items-center gap-2">
+          {dataUpdatedAt > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Updated {new Date(dataUpdatedAt).toLocaleTimeString()}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoRefresh((prev) => !prev)}
+          >
+            {autoRefresh ? (
+              <PauseIcon className="mr-2 size-4" />
+            ) : (
+              <PlayIcon className="mr-2 size-4" />
+            )}
+            {autoRefresh ? "Pause" : "Resume"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCwIcon className="mr-2 size-4" />
+            Refresh
+          </Button>
+        </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

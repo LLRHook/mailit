@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from '@/test/test-utils'
 import EmailsPage from '../page'
 
@@ -33,5 +33,21 @@ describe('EmailsPage', () => {
   it('renders the page description', () => {
     renderWithProviders(<EmailsPage />)
     expect(screen.getByText('View and manage sent emails')).toBeInTheDocument()
+  })
+
+  it('renders auto-refresh toggle defaulting to Pause', () => {
+    renderWithProviders(<EmailsPage />)
+    expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument()
+  })
+
+  it('toggles auto-refresh to Resume when clicked', () => {
+    renderWithProviders(<EmailsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /pause/i }))
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+  })
+
+  it('renders manual Refresh button', () => {
+    renderWithProviders(<EmailsPage />)
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument()
   })
 })
