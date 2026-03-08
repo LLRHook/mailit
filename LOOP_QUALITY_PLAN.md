@@ -18,7 +18,7 @@
 | 8 | P2 | missing-test | `web/src/lib/api.ts` | Add unit tests for API client functions | skip (jsdom localStorage broken on this Node) | — |
 | 9 | P2 | missing-test | `web/src/lib/store.ts` | Add unit tests for Zustand store | done | — |
 | 10 | P2 | missing-test | `web/src/app/(dashboard)/audience/page.tsx` | Add page test for audience dashboard | done | — |
-| 11 | P2 | missing-test | `web/src/app/(dashboard)/metrics/page.tsx` | Add page test for metrics dashboard | todo | — |
+| 11 | P2 | missing-test | `web/src/app/(dashboard)/metrics/page.tsx` | Add page test for metrics dashboard | done | — |
 | 12 | P2 | missing-test | `web/src/app/(dashboard)/broadcasts/page.tsx` | Add page test for broadcasts list page | skip (modified on loop-features) | — |
 | 13 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/new/page.tsx` | Add page test for new broadcast page | todo | — |
 | 14 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/[id]/page.tsx` | Add page test for broadcast detail page | todo | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 10
-- **Last completed task**: #10 (add page test for audience dashboard)
-- **Next task**: #11
+- **Current iteration**: 11
+- **Last completed task**: #11 (add page test for metrics dashboard)
+- **Next task**: #13 (skip #12 — was modified on loop-features)
