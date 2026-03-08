@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MailIcon, SendIcon, AlertTriangleIcon, EyeIcon, RefreshCwIcon } from "lucide-react";
-import { format } from "date-fns";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +12,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RelativeTime } from "@/components/shared/relative-time";
 
 interface Email {
   id: string;
@@ -48,9 +48,10 @@ const columns: ColumnDef<Email>[] = [
     accessorKey: "created_at",
     header: "Created At",
     cell: ({ row }) => (
-      <span className="text-muted-foreground">
-        {format(new Date(row.getValue("created_at")), "MMM d, yyyy HH:mm")}
-      </span>
+      <RelativeTime
+        date={row.getValue("created_at")}
+        className="text-muted-foreground"
+      />
     ),
   },
 ];

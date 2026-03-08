@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { ScrollTextIcon, AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
-import { format } from "date-fns";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +18,7 @@ import {
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RelativeTime } from "@/components/shared/relative-time";
 
 interface LogEntry {
   id: string;
@@ -49,9 +49,10 @@ const columns: ColumnDef<LogEntry>[] = [
     accessorKey: "timestamp",
     header: "Timestamp",
     cell: ({ row }) => (
-      <span className="text-muted-foreground font-mono text-xs">
-        {format(new Date(row.getValue("timestamp")), "MMM d HH:mm:ss.SSS")}
-      </span>
+      <RelativeTime
+        date={row.getValue("timestamp")}
+        className="text-muted-foreground font-mono text-xs"
+      />
     ),
   },
   {
