@@ -15,3 +15,4 @@
 | 10 | 2026-03-08 | Task #10: test audience page | Added 3 tests for AudiencePage (header, description, 4 tab triggers). 103 tests pass, 0 lint errors. |
 | 11 | 2026-03-08 | Task #11: test metrics page | Added 3 tests for MetricsPage (header, description, 4 stat cards). 106 tests pass, 0 lint errors. 1 fix attempt (recharts mock). |
 | 12 | 2026-03-08 | Task #13: test broadcasts/new | Added 3 tests for NewBroadcastPage (title, details card, Save Draft/Send buttons). 119 tests pass, 0 lint errors. |
+| 13 | 2026-03-08 | Task #14: test broadcasts/[id] | Added 3 tests for BroadcastDetailPage (broadcast name, stat cards, details/preview cards). 122 tests pass, 0 lint errors. |

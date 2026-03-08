@@ -21,7 +21,7 @@
 | 11 | P2 | missing-test | `web/src/app/(dashboard)/metrics/page.tsx` | Add page test for metrics dashboard | done | — |
 | 12 | P2 | missing-test | `web/src/app/(dashboard)/broadcasts/page.tsx` | Add page test for broadcasts list page | skip (modified on loop-features) | — |
 | 13 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/new/page.tsx` | Add page test for new broadcast page | done | — |
-| 14 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/[id]/page.tsx` | Add page test for broadcast detail page | todo | — |
+| 14 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/[id]/page.tsx` | Add page test for broadcast detail page | done | — |
 | 15 | P3 | missing-test | `web/src/app/(dashboard)/webhooks/new/page.tsx` | Add page test for new webhook page | todo | — |
 | 16 | P3 | missing-test | `web/src/app/(dashboard)/templates/new/page.tsx` | Add page test for new template page | todo | — |
 | 17 | P3 | missing-test | `web/src/app/(dashboard)/templates/[id]/page.tsx` | Add page test for template detail page | todo | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 12
-- **Last completed task**: #13 (add page test for new broadcast page)
-- **Next task**: #14
+- **Current iteration**: 13
+- **Last completed task**: #14 (add page test for broadcast detail page)
+- **Next task**: #15
