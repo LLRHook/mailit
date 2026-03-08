@@ -17,3 +17,4 @@
 | 12 | 2026-03-08 | Task #13: test broadcasts/new | Added 3 tests for NewBroadcastPage (title, details card, Save Draft/Send buttons). 119 tests pass, 0 lint errors. |
 | 13 | 2026-03-08 | Task #14: test broadcasts/[id] | Added 3 tests for BroadcastDetailPage (broadcast name, stat cards, details/preview cards). 122 tests pass, 0 lint errors. |
 | 14 | 2026-03-08 | Task #15: test webhooks/new | Added 5 tests for NewWebhookPage (title, config card, endpoint URL, 6 event checkboxes, create button). 127 tests pass, 0 lint errors. |
+| 15 | 2026-03-08 | Task #16: test templates/new | Added 4 tests for NewTemplatePage (title, details card, form inputs, create button). 131 tests pass, 0 lint errors. |
