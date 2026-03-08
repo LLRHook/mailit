@@ -8,8 +8,9 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-02 (iteration 2 — confirm dialog for deletes)
-- **Next task to pick**: task-03
+- **Last completed task**: task-03 (iteration 3 — dashboard home page with stats)
+- **Next task to pick**: task-04
+- **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
 
@@ -44,7 +45,7 @@
     "id": "task-03",
     "title": "Build a real dashboard home page with summary stats",
     "priority": 2,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The dashboard root (web/src/app/(dashboard)/page.tsx) just redirects to /emails. Replace with a proper dashboard showing key metrics (emails sent, delivery rate, recent activity) using the existing /metrics and /settings/usage API endpoints.",
     "files": ["web/src/app/(dashboard)/page.tsx"],
