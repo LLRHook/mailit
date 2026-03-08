@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-10 (iteration 10 — API drawer with code examples)
-- **Next task to pick**: task-11
+- **Last completed task**: task-11 (iteration 12 — searchKey for broadcasts, templates, audience)
+- **Next task to pick**: task-12
 - **Known conflict**: api-drawer.test.tsx exists on both features and quality branches — will need resolution on merge
 - **Branch conflict check**: Quality branch touches emails/page.tsx, webhooks/new/page.tsx, layout.tsx, app-sidebar.tsx — new tasks avoid these files
 
@@ -43,7 +43,7 @@
     "id": "task-11",
     "title": "Wire searchKey into broadcasts, templates, audience DataTables",
     "priority": 0,
-    "status": "pending",
+    "status": "done",
     "deps": [],
     "description": "The DataTable component supports searchKey/searchPlaceholder props (added in task-01) but no page uses them yet. Add searchKey to broadcasts (name), templates (name), and audience (email) list pages.",
     "files": [

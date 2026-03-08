@@ -14,3 +14,4 @@
 | 9 | task-09 | done | Added descriptions to all 6 webhook event types. 5 new tests (92 total). Merged to main. Quality has webhooks/new/test but different path — no conflict. |
 | 10 | task-10 | done | Enhanced API drawer with tabbed cURL/Node.js/Python code examples. 5 new tests (97 total). ALL 10 TASKS COMPLETE. Conflict: api-drawer.test.tsx exists on both branches. |
 | 11 | planning | done | Batch 1 complete. Analyzed codebase gaps: 0/8 pages use searchKey, 2/18 pages have error handling, 0 forms use zod. Created 10-task batch 2 backlog (tasks 11–20). |
+| 12 | task-11 | done | Wired searchKey into broadcasts (name), templates (name), audience (email) DataTables. 3 new tests (100 total). No overlap with quality branch. |

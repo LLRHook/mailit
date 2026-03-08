@@ -92,6 +92,8 @@ export default function TemplatesPage() {
           data={templates}
           isLoading={isLoading}
           onRowClick={(row) => router.push(`/templates/${row.id}`)}
+          searchKey="name"
+          searchPlaceholder="Search templates..."
         />
       )}
     </div>

@@ -522,6 +522,8 @@ function ContactsTab() {
           columns={contactColumns}
           data={contacts}
           isLoading={isLoading}
+          searchKey="email"
+          searchPlaceholder="Search contacts..."
         />
       )}
     </div>

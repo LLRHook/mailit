@@ -138,6 +138,8 @@ export default function BroadcastsPage() {
           data={broadcasts}
           isLoading={isLoading}
           onRowClick={(row) => router.push(`/broadcasts/${row.id}`)}
+          searchKey="name"
+          searchPlaceholder="Search broadcasts..."
         />
       )}
       <ConfirmDialog
