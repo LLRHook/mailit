@@ -16,7 +16,7 @@
 | 6 | P1 | missing-test | `web/src/components/shared/date-range-picker.tsx` | Add unit test for DateRangePicker component | done | — |
 | 7 | P2 | missing-test | `web/src/components/shared/api-drawer.tsx` | Add unit test for ApiDrawer component | done | — |
 | 8 | P2 | missing-test | `web/src/lib/api.ts` | Add unit tests for API client functions | skip (jsdom localStorage broken on this Node) | — |
-| 9 | P2 | missing-test | `web/src/lib/store.ts` | Add unit tests for Zustand store | todo | — |
+| 9 | P2 | missing-test | `web/src/lib/store.ts` | Add unit tests for Zustand store | done | — |
 | 10 | P2 | missing-test | `web/src/app/(dashboard)/audience/page.tsx` | Add page test for audience dashboard | todo | — |
 | 11 | P2 | missing-test | `web/src/app/(dashboard)/metrics/page.tsx` | Add page test for metrics dashboard | todo | — |
 | 12 | P2 | missing-test | `web/src/app/(dashboard)/broadcasts/page.tsx` | Add page test for broadcasts list page | skip (modified on loop-features) | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 8
-- **Last completed task**: #7 (add tests for ApiDrawer component)
-- **Next task**: #9 (skipped #8 — localStorage unavailable in jsdom on this Node version)
+- **Current iteration**: 9
+- **Last completed task**: #9 (add tests for Zustand store)
+- **Next task**: #10

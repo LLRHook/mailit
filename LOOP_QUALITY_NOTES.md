@@ -11,3 +11,4 @@
 | 6 | 2026-03-08 | Task #6: test DateRangePicker | Added 5 tests for DateRangePicker (placeholder, date range, from-only, popover open, className). 79 tests pass, 0 lint errors. |
 | 7 | 2026-03-08 | Task #7: test ApiDrawer | Added 4 tests for ApiDrawer (trigger button, title, examples render, curl code blocks). 83 tests pass, 0 lint errors. 1 fix attempt needed. |
 | 8 | 2026-03-08 | Task #8: test api.ts | REVERTED — jsdom localStorage is broken on this Node version (`localStorage.clear/removeItem is not a function`). Skipped after 2 failed attempts. |
+| 9 | 2026-03-08 | Task #9: test store.ts | Added 3 tests for useUIStore (initial state, toggle collapsed, toggle back). 100 tests pass, 0 lint errors. |
