@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-04 (iteration 4 — error handling for logs page)
-- **Next task to pick**: task-05
+- **Last completed task**: task-05 (iteration 5 — relative time display)
+- **Next task to pick**: task-06
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -65,7 +65,7 @@
     "id": "task-05",
     "title": "Add relative time display to timestamps",
     "priority": 4,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "All timestamps across the app show absolute dates. Add a RelativeTime component using date-fns formatDistanceToNow that shows relative time (e.g. '5 min ago') with absolute time on hover via a tooltip. Use it in emails list and logs table.",
     "files": [
