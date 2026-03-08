@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-03 (iteration 3 — dashboard home page with stats)
-- **Next task to pick**: task-04
+- **Last completed task**: task-04 (iteration 4 — error handling for logs page)
+- **Next task to pick**: task-05
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -55,7 +55,7 @@
     "id": "task-04",
     "title": "Add error handling to logs page",
     "priority": 3,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The logs page (web/src/app/(dashboard)/logs/page.tsx) doesn't handle API errors — no error state, no retry button. The emails page already has this pattern. Add consistent error handling following the same pattern.",
     "files": ["web/src/app/(dashboard)/logs/page.tsx"],
