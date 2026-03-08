@@ -8,8 +8,9 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-09 (iteration 9 — webhook event descriptions)
-- **Next task to pick**: task-10
+- **Last completed task**: task-10 (iteration 10 — API drawer with code examples)
+- **Next task to pick**: ALL 10 TASKS COMPLETE
+- **Known conflict**: api-drawer.test.tsx exists on both features and quality branches — will need resolution on merge
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -122,7 +123,7 @@
     "id": "task-10",
     "title": "Add API documentation drawer with code examples",
     "priority": 9,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The api-drawer component exists but could be enhanced with language-specific code examples (curl, Node.js, Python) for sending emails via the API. This helps developer onboarding.",
     "files": ["web/src/components/shared/api-drawer.tsx"],
