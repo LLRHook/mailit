@@ -20,3 +20,4 @@
 | 15 | 2026-03-08 | Task #16: test templates/new | Added 4 tests for NewTemplatePage (title, details card, form inputs, create button). 131 tests pass, 0 lint errors. |
 | 16 | 2026-03-08 | Task #17: test templates/[id] | Added 3 tests for EditTemplatePage (title, details card with inputs, save/publish buttons). 134 tests pass, 0 lint errors. |
 | 17 | 2026-03-08 | Task #18: test domains/[domainId] | Added 3 tests for DomainDetailPage (domain name, DNS Records card, Verify Domain button). 137 tests pass, 0 lint errors. |
+| 18 | 2026-03-08 | Task #19: test emails/[emailId] | Added 3 tests for EmailDetailPage (subject heading, Email Details card, Preview/Source/Events tabs). 140 tests pass, 0 lint errors. 1 fix attempt (duplicate subject text). |
