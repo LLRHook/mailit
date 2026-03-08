@@ -12,14 +12,14 @@
 | 2 | P1 | missing-test | `web/src/lib/utils.ts` | Add unit tests for utility functions (cn helper, etc.) | done | — |
 | 3 | P1 | missing-test | `web/src/hooks/use-mobile.ts` | Add unit test for `useMobile` hook | done | — |
 | 4 | P1 | missing-test | `web/src/components/shared/error-boundary.tsx` | Add unit test for ErrorBoundary component | done | — |
-| 5 | P1 | missing-test | `web/src/components/shared/stat-card.tsx` | Add unit test for StatCard component | todo | — |
+| 5 | P1 | missing-test | `web/src/components/shared/stat-card.tsx` | Add unit test for StatCard component | done | — |
 | 6 | P1 | missing-test | `web/src/components/shared/date-range-picker.tsx` | Add unit test for DateRangePicker component | todo | — |
 | 7 | P2 | missing-test | `web/src/components/shared/api-drawer.tsx` | Add unit test for ApiDrawer component | todo | — |
 | 8 | P2 | missing-test | `web/src/lib/api.ts` | Add unit tests for API client functions | todo | — |
 | 9 | P2 | missing-test | `web/src/lib/store.ts` | Add unit tests for Zustand store | todo | — |
 | 10 | P2 | missing-test | `web/src/app/(dashboard)/audience/page.tsx` | Add page test for audience dashboard | todo | — |
 | 11 | P2 | missing-test | `web/src/app/(dashboard)/metrics/page.tsx` | Add page test for metrics dashboard | todo | — |
-| 12 | P2 | missing-test | `web/src/app/(dashboard)/broadcasts/page.tsx` | Add page test for broadcasts list page | todo | — |
+| 12 | P2 | missing-test | `web/src/app/(dashboard)/broadcasts/page.tsx` | Add page test for broadcasts list page | skip (modified on loop-features) | — |
 | 13 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/new/page.tsx` | Add page test for new broadcast page | todo | — |
 | 14 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/[id]/page.tsx` | Add page test for broadcast detail page | todo | — |
 | 15 | P3 | missing-test | `web/src/app/(dashboard)/webhooks/new/page.tsx` | Add page test for new webhook page | todo | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 4
-- **Last completed task**: #4 (add tests for ErrorBoundary component)
-- **Next task**: #5
+- **Current iteration**: 5
+- **Last completed task**: #5 (add tests for StatCard component)
+- **Next task**: #6
