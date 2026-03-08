@@ -20,8 +20,9 @@ vi.mock('next/navigation', () => ({
 
 // Mock next/image — use createElement to avoid JSX in .ts file
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => {
-    const { fill: _fill, priority: _priority, ...rest } = props
+  default: ({ fill, priority, ...rest }: Record<string, unknown>) => {
+    void fill
+    void priority
     return createElement('img', rest)
   },
 }))
