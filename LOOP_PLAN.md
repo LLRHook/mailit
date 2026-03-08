@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-07 (iteration 7 — dark mode toggle in sidebar)
-- **Next task to pick**: task-08
+- **Last completed task**: task-08 (iteration 8 — auto-refresh toggle for emails)
+- **Next task to pick**: task-09
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -102,7 +102,7 @@
     "id": "task-08",
     "title": "Add auto-refresh toggle to emails page",
     "priority": 7,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The emails page has refetchInterval: 15_000 hardcoded. Add a visible toggle button so users can enable/disable auto-refresh and see when the last refresh happened.",
     "files": ["web/src/app/(dashboard)/emails/page.tsx"],
