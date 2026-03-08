@@ -9,125 +9,167 @@
 
 ## Current State
 - **Last completed task**: task-10 (iteration 10 — API drawer with code examples)
-- **Next task to pick**: ALL 10 TASKS COMPLETE
+- **Next task to pick**: task-11
 - **Known conflict**: api-drawer.test.tsx exists on both features and quality branches — will need resolution on merge
-- **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
+- **Branch conflict check**: Quality branch touches emails/page.tsx, webhooks/new/page.tsx, layout.tsx, app-sidebar.tsx — new tasks avoid these files
 
-## Task List
+## Batch 1 (tasks 01–10) — COMPLETE
+
+<details>
+<summary>All 10 tasks done — 97 tests added</summary>
+
+```json
+[
+  { "id": "task-01", "title": "Add search/filter input to DataTable component", "status": "done" },
+  { "id": "task-02", "title": "Add confirmation dialog for destructive delete actions", "status": "done" },
+  { "id": "task-03", "title": "Build a real dashboard home page with summary stats", "status": "done" },
+  { "id": "task-04", "title": "Add error handling to logs page", "status": "done" },
+  { "id": "task-05", "title": "Add relative time display to timestamps", "status": "done" },
+  { "id": "task-06", "title": "Add keyboard shortcut for global search navigation", "status": "done" },
+  { "id": "task-07", "title": "Add dark mode toggle to sidebar", "status": "done" },
+  { "id": "task-08", "title": "Add auto-refresh toggle to emails page", "status": "done" },
+  { "id": "task-09", "title": "Add webhook event type descriptions", "status": "done" },
+  { "id": "task-10", "title": "Add API documentation drawer with code examples", "status": "done" }
+]
+```
+
+</details>
+
+## Batch 2 (tasks 11–20) — Task List
 
 ```json
 [
   {
-    "id": "task-01",
-    "title": "Add search/filter input to DataTable component",
+    "id": "task-11",
+    "title": "Wire searchKey into broadcasts, templates, audience DataTables",
     "priority": 0,
-    "status": "done",
+    "status": "pending",
     "deps": [],
-    "description": "The DataTable component (web/src/components/shared/data-table.tsx) lacks text search. Add an optional searchKey prop and a search input that filters rows using getFilteredRowModel. This immediately improves UX across emails, broadcasts, contacts, API keys, webhooks, logs pages.",
-    "files": ["web/src/components/shared/data-table.tsx"],
-    "test_files": ["web/src/components/shared/__tests__/data-table.test.tsx"]
-  },
-  {
-    "id": "task-02",
-    "title": "Add confirmation dialog for destructive delete actions",
-    "priority": 1,
-    "status": "done",
-    "deps": [],
-    "description": "Broadcasts, API keys, and webhooks pages have delete buttons with no confirmation. Create a reusable ConfirmDialog component and wire it into delete mutations on broadcasts, api-keys, and webhooks pages.",
+    "description": "The DataTable component supports searchKey/searchPlaceholder props (added in task-01) but no page uses them yet. Add searchKey to broadcasts (name), templates (name), and audience (email) list pages.",
     "files": [
-      "web/src/components/shared/confirm-dialog.tsx",
       "web/src/app/(dashboard)/broadcasts/page.tsx",
-      "web/src/app/(dashboard)/api-keys/page.tsx",
-      "web/src/app/(dashboard)/webhooks/page.tsx"
+      "web/src/app/(dashboard)/templates/page.tsx",
+      "web/src/app/(dashboard)/audience/page.tsx"
     ],
-    "test_files": ["web/src/components/shared/__tests__/confirm-dialog.test.tsx"]
+    "test_files": ["web/src/app/(dashboard)/broadcasts/__tests__/page.test.tsx"]
   },
   {
-    "id": "task-03",
-    "title": "Build a real dashboard home page with summary stats",
-    "priority": 2,
-    "status": "done",
+    "id": "task-12",
+    "title": "Wire searchKey into webhooks, domains, api-keys, logs DataTables",
+    "priority": 1,
+    "status": "pending",
     "deps": [],
-    "description": "The dashboard root (web/src/app/(dashboard)/page.tsx) just redirects to /emails. Replace with a proper dashboard showing key metrics (emails sent, delivery rate, recent activity) using the existing /metrics and /settings/usage API endpoints.",
-    "files": ["web/src/app/(dashboard)/page.tsx"],
-    "test_files": ["web/src/app/(dashboard)/__tests__/page.test.tsx"]
-  },
-  {
-    "id": "task-04",
-    "title": "Add error handling to logs page",
-    "priority": 3,
-    "status": "done",
-    "deps": [],
-    "description": "The logs page (web/src/app/(dashboard)/logs/page.tsx) doesn't handle API errors — no error state, no retry button. The emails page already has this pattern. Add consistent error handling following the same pattern.",
-    "files": ["web/src/app/(dashboard)/logs/page.tsx"],
-    "test_files": ["web/src/app/(dashboard)/logs/__tests__/page.test.tsx"]
-  },
-  {
-    "id": "task-05",
-    "title": "Add relative time display to timestamps",
-    "priority": 4,
-    "status": "done",
-    "deps": [],
-    "description": "All timestamps across the app show absolute dates. Add a RelativeTime component using date-fns formatDistanceToNow that shows relative time (e.g. '5 min ago') with absolute time on hover via a tooltip. Use it in emails list and logs table.",
+    "description": "Continue wiring DataTable search into remaining list pages. Add searchKey to webhooks (url), domains (name), api-keys (name), and logs (message).",
     "files": [
-      "web/src/components/shared/relative-time.tsx",
-      "web/src/app/(dashboard)/emails/page.tsx",
+      "web/src/app/(dashboard)/webhooks/page.tsx",
+      "web/src/app/(dashboard)/domains/page.tsx",
+      "web/src/app/(dashboard)/api-keys/page.tsx",
       "web/src/app/(dashboard)/logs/page.tsx"
     ],
-    "test_files": ["web/src/components/shared/__tests__/relative-time.test.tsx"]
+    "test_files": ["web/src/app/(dashboard)/api-keys/__tests__/page.test.tsx"]
   },
   {
-    "id": "task-06",
-    "title": "Add keyboard shortcut for global search navigation",
-    "priority": 5,
-    "status": "done",
-    "deps": ["task-01"],
-    "description": "Add Cmd+K / Ctrl+K keyboard shortcut that opens a command palette (using the existing cmdk dependency) for quick navigation between pages. The cmdk package is already in package.json but unused.",
+    "id": "task-13",
+    "title": "Add error handling to audience, broadcasts, api-keys pages",
+    "priority": 2,
+    "status": "pending",
+    "deps": [],
+    "description": "These 3 list pages have no error handling. Add the isError/error/refetch pattern with an error card and Retry button, matching the emails/logs page pattern.",
     "files": [
-      "web/src/components/shared/command-palette.tsx",
-      "web/src/app/(dashboard)/layout.tsx"
+      "web/src/app/(dashboard)/audience/page.tsx",
+      "web/src/app/(dashboard)/broadcasts/page.tsx",
+      "web/src/app/(dashboard)/api-keys/page.tsx"
     ],
-    "test_files": ["web/src/components/shared/__tests__/command-palette.test.tsx"]
+    "test_files": ["web/src/app/(dashboard)/audience/__tests__/page.test.tsx"]
   },
   {
-    "id": "task-07",
-    "title": "Add dark mode toggle to sidebar",
+    "id": "task-14",
+    "title": "Add error handling to templates, webhooks, domains pages",
+    "priority": 3,
+    "status": "pending",
+    "deps": [],
+    "description": "Continue adding error handling to remaining list pages. Add the isError/error/refetch pattern with error card and Retry button.",
+    "files": [
+      "web/src/app/(dashboard)/templates/page.tsx",
+      "web/src/app/(dashboard)/webhooks/page.tsx",
+      "web/src/app/(dashboard)/domains/page.tsx"
+    ],
+    "test_files": ["web/src/app/(dashboard)/templates/__tests__/page.test.tsx"]
+  },
+  {
+    "id": "task-15",
+    "title": "Add error handling to detail pages",
+    "priority": 4,
+    "status": "pending",
+    "deps": [],
+    "description": "Detail pages (broadcasts/[id], templates/[id], domains/[domainId]) show skeletons on load but have no error state. Add error handling with retry for each.",
+    "files": [
+      "web/src/app/(dashboard)/broadcasts/[id]/page.tsx",
+      "web/src/app/(dashboard)/templates/[id]/page.tsx",
+      "web/src/app/(dashboard)/domains/[domainId]/page.tsx"
+    ],
+    "test_files": ["web/src/app/(dashboard)/broadcasts/__tests__/detail-page.test.tsx"]
+  },
+  {
+    "id": "task-16",
+    "title": "Add loading skeletons to list pages",
+    "priority": 5,
+    "status": "pending",
+    "deps": [],
+    "description": "List pages (audience, broadcasts, api-keys, templates, webhooks, domains) show nothing while loading. Add skeleton cards/tables matching the detail page skeleton pattern.",
+    "files": [
+      "web/src/app/(dashboard)/audience/page.tsx",
+      "web/src/app/(dashboard)/broadcasts/page.tsx",
+      "web/src/app/(dashboard)/api-keys/page.tsx",
+      "web/src/app/(dashboard)/templates/page.tsx",
+      "web/src/app/(dashboard)/webhooks/page.tsx",
+      "web/src/app/(dashboard)/domains/page.tsx"
+    ],
+    "test_files": []
+  },
+  {
+    "id": "task-17",
+    "title": "Add zod validation to broadcasts/new form",
     "priority": 6,
-    "status": "done",
+    "status": "pending",
     "deps": [],
-    "description": "The app uses next-themes but there's no visible toggle for switching between light/dark mode. Add a theme toggle button to the sidebar footer using the existing next-themes dependency.",
-    "files": ["web/src/components/layout/app-sidebar.tsx"],
-    "test_files": ["web/src/components/layout/__tests__/app-sidebar.test.tsx"]
+    "description": "The broadcasts/new page uses manual validation (isValid = name && from && subject && audienceId && (html || text)). Replace with zod schema validation with inline error messages for each field.",
+    "files": ["web/src/app/(dashboard)/broadcasts/new/page.tsx"],
+    "test_files": ["web/src/app/(dashboard)/broadcasts/__tests__/new-page.test.tsx"]
   },
   {
-    "id": "task-08",
-    "title": "Add auto-refresh toggle to emails page",
+    "id": "task-18",
+    "title": "Add zod validation to templates/new form",
     "priority": 7,
-    "status": "done",
+    "status": "pending",
     "deps": [],
-    "description": "The emails page has refetchInterval: 15_000 hardcoded. Add a visible toggle button so users can enable/disable auto-refresh and see when the last refresh happened.",
-    "files": ["web/src/app/(dashboard)/emails/page.tsx"],
-    "test_files": ["web/src/app/(dashboard)/emails/__tests__/page.test.tsx"]
+    "description": "The templates/new page uses manual validation. Replace with zod schema validation with inline error messages. Similar pattern to task-17.",
+    "files": ["web/src/app/(dashboard)/templates/new/page.tsx"],
+    "test_files": ["web/src/app/(dashboard)/templates/__tests__/new-page.test.tsx"]
   },
   {
-    "id": "task-09",
-    "title": "Add webhook event type descriptions",
+    "id": "task-19",
+    "title": "Add empty state illustrations to list pages",
     "priority": 8,
-    "status": "done",
+    "status": "pending",
     "deps": [],
-    "description": "The webhook creation page (web/src/app/(dashboard)/webhooks/new/page.tsx) lists event types but doesn't describe what each event means. Add descriptive text for each event type to help users configure webhooks.",
-    "files": ["web/src/app/(dashboard)/webhooks/new/page.tsx"],
-    "test_files": ["web/src/app/(dashboard)/webhooks/__tests__/new-page.test.tsx"]
+    "description": "List pages show an empty DataTable when there's no data. Add a friendly empty state with an icon, message, and CTA button (e.g. 'No broadcasts yet — create your first one') to broadcasts, templates, and audience pages.",
+    "files": [
+      "web/src/app/(dashboard)/broadcasts/page.tsx",
+      "web/src/app/(dashboard)/templates/page.tsx",
+      "web/src/app/(dashboard)/audience/page.tsx"
+    ],
+    "test_files": []
   },
   {
-    "id": "task-10",
-    "title": "Add API documentation drawer with code examples",
+    "id": "task-20",
+    "title": "Add metrics page error handling and loading skeleton",
     "priority": 9,
-    "status": "done",
+    "status": "pending",
     "deps": [],
-    "description": "The api-drawer component exists but could be enhanced with language-specific code examples (curl, Node.js, Python) for sending emails via the API. This helps developer onboarding.",
-    "files": ["web/src/components/shared/api-drawer.tsx"],
-    "test_files": ["web/src/components/shared/__tests__/api-drawer.test.tsx"]
+    "description": "The metrics page uses multiple useQuery calls but lacks error states and loading skeletons. Add consistent error handling and skeleton UI.",
+    "files": ["web/src/app/(dashboard)/metrics/page.tsx"],
+    "test_files": ["web/src/app/(dashboard)/metrics/__tests__/page.test.tsx"]
   }
 ]
 ```
