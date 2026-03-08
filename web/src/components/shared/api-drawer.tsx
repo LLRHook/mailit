@@ -8,6 +8,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code } from "lucide-react";
 import { CodeBlock } from "./code-block";
 
@@ -36,6 +37,41 @@ function buildCurl(example: ApiExample): string {
   return cmd;
 }
 
+function buildNode(example: ApiExample): string {
+  const bodyArg = example.body
+    ? `\n    body: JSON.stringify(${example.body}),`
+    : "";
+
+  return `const res = await fetch("https://api.yourdomain.com${example.endpoint}", {
+  method: "${example.method}",
+  headers: {
+    "Authorization": "Bearer re_xxxxx",
+    "Content-Type": "application/json",
+  },${bodyArg}
+});
+
+const data = await res.json();
+console.log(data);`;
+}
+
+function buildPython(example: ApiExample): string {
+  const bodyArg = example.body
+    ? `\n    json=${example.body},`
+    : "";
+
+  return `import requests
+
+res = requests.${example.method.toLowerCase()}(
+    "https://api.yourdomain.com${example.endpoint}",
+    headers={
+        "Authorization": "Bearer re_xxxxx",
+        "Content-Type": "application/json",
+    },${bodyArg}
+)
+
+print(res.json())`;
+}
+
 export function ApiDrawer({ examples }: ApiDrawerProps) {
   return (
     <Sheet>
@@ -60,7 +96,22 @@ export function ApiDrawer({ examples }: ApiDrawerProps) {
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mb-2">{example.title}</p>
-              <CodeBlock code={buildCurl(example)} />
+              <Tabs defaultValue="curl">
+                <TabsList>
+                  <TabsTrigger value="curl">cURL</TabsTrigger>
+                  <TabsTrigger value="node">Node.js</TabsTrigger>
+                  <TabsTrigger value="python">Python</TabsTrigger>
+                </TabsList>
+                <TabsContent value="curl">
+                  <CodeBlock code={buildCurl(example)} />
+                </TabsContent>
+                <TabsContent value="node">
+                  <CodeBlock code={buildNode(example)} />
+                </TabsContent>
+                <TabsContent value="python">
+                  <CodeBlock code={buildPython(example)} />
+                </TabsContent>
+              </Tabs>
             </div>
           ))}
         </div>
