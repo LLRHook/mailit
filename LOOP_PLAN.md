@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-06 (iteration 6 — command palette with Cmd+K)
-- **Next task to pick**: task-07
+- **Last completed task**: task-07 (iteration 7 — dark mode toggle in sidebar)
+- **Next task to pick**: task-08
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -92,7 +92,7 @@
     "id": "task-07",
     "title": "Add dark mode toggle to sidebar",
     "priority": 6,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The app uses next-themes but there's no visible toggle for switching between light/dark mode. Add a theme toggle button to the sidebar footer using the existing next-themes dependency.",
     "files": ["web/src/components/layout/app-sidebar.tsx"],
