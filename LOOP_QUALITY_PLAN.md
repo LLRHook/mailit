@@ -10,7 +10,7 @@
 |---|----------|------|------|-------------|--------|---------|
 | 1 | P0 | lint-fix | `web/src/test/setup.ts` | Fix `@typescript-eslint/no-unused-vars` warnings for `_fill` and `_priority` — destructured but unused vars in next/image mock | done | — |
 | 2 | P1 | missing-test | `web/src/lib/utils.ts` | Add unit tests for utility functions (cn helper, etc.) | done | — |
-| 3 | P1 | missing-test | `web/src/hooks/use-mobile.ts` | Add unit test for `useMobile` hook | todo | — |
+| 3 | P1 | missing-test | `web/src/hooks/use-mobile.ts` | Add unit test for `useMobile` hook | done | — |
 | 4 | P1 | missing-test | `web/src/components/shared/error-boundary.tsx` | Add unit test for ErrorBoundary component | todo | — |
 | 5 | P1 | missing-test | `web/src/components/shared/stat-card.tsx` | Add unit test for StatCard component | todo | — |
 | 6 | P1 | missing-test | `web/src/components/shared/date-range-picker.tsx` | Add unit test for DateRangePicker component | todo | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 2
-- **Last completed task**: #2 (add tests for utils.ts cn helper)
-- **Next task**: #3
+- **Current iteration**: 3
+- **Last completed task**: #3 (add tests for useIsMobile hook)
+- **Next task**: #4
