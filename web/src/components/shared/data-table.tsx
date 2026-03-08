@@ -7,12 +7,15 @@ import {
   getSortedRowModel,
   SortingState,
   getPaginationRowModel,
+  getFilteredRowModel,
+  ColumnFiltersState,
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, SearchIcon } from "lucide-react";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -20,10 +23,13 @@ interface DataTableProps<TData, TValue> {
   pageSize?: number;
   isLoading?: boolean;
   onRowClick?: (row: TData) => void;
+  searchKey?: string;
+  searchPlaceholder?: string;
 }
 
-export function DataTable<TData, TValue>({ columns, data, pageSize = 20, isLoading, onRowClick }: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({ columns, data, pageSize = 20, isLoading, onRowClick, searchKey, searchPlaceholder }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
     data,
@@ -31,8 +37,10 @@ export function DataTable<TData, TValue>({ columns, data, pageSize = 20, isLoadi
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
-    state: { sorting },
+    onColumnFiltersChange: setColumnFilters,
+    state: { sorting, columnFilters },
     initialState: { pagination: { pageSize } },
   });
 
@@ -67,6 +75,17 @@ export function DataTable<TData, TValue>({ columns, data, pageSize = 20, isLoadi
 
   return (
     <div>
+      {searchKey && (
+        <div className="relative mb-4">
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={searchPlaceholder ?? "Search..."}
+            value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+            onChange={(e) => table.getColumn(searchKey)?.setFilterValue(e.target.value)}
+            className="pl-9 max-w-sm"
+          />
+        </div>
+      )}
       <div className="rounded-md border border-border">
         <Table>
           <TableHeader>

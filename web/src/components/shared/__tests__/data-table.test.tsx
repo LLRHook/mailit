@@ -49,4 +49,22 @@ describe('DataTable', () => {
     fireEvent.click(screen.getByText('Alice'))
     expect(onRowClick).toHaveBeenCalledWith({ id: '1', name: 'Alice' })
   })
+
+  it('renders search input when searchKey is provided', () => {
+    render(<DataTable columns={columns} data={data} searchKey="name" searchPlaceholder="Search names..." />)
+    expect(screen.getByPlaceholderText('Search names...')).toBeInTheDocument()
+  })
+
+  it('does not render search input when searchKey is not provided', () => {
+    render(<DataTable columns={columns} data={data} />)
+    expect(screen.queryByPlaceholderText('Search...')).not.toBeInTheDocument()
+  })
+
+  it('filters rows when typing in search input', () => {
+    render(<DataTable columns={columns} data={data} searchKey="name" />)
+    const input = screen.getByPlaceholderText('Search...')
+    fireEvent.change(input, { target: { value: 'Alice' } })
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.queryByText('Bob')).not.toBeInTheDocument()
+  })
 })

@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: none (iteration 0 — planning only)
-- **Next task to pick**: task-01
+- **Last completed task**: task-01 (iteration 1 — DataTable search filter)
+- **Next task to pick**: task-02
 
 ## Task List
 
@@ -19,7 +19,7 @@
     "id": "task-01",
     "title": "Add search/filter input to DataTable component",
     "priority": 0,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The DataTable component (web/src/components/shared/data-table.tsx) lacks text search. Add an optional searchKey prop and a search input that filters rows using getFilteredRowModel. This immediately improves UX across emails, broadcasts, contacts, API keys, webhooks, logs pages.",
     "files": ["web/src/components/shared/data-table.tsx"],
