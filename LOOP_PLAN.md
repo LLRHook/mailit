@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-01 (iteration 1 — DataTable search filter)
-- **Next task to pick**: task-02
+- **Last completed task**: task-02 (iteration 2 — confirm dialog for deletes)
+- **Next task to pick**: task-03
 
 ## Task List
 
@@ -29,7 +29,7 @@
     "id": "task-02",
     "title": "Add confirmation dialog for destructive delete actions",
     "priority": 1,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "Broadcasts, API keys, and webhooks pages have delete buttons with no confirmation. Create a reusable ConfirmDialog component and wire it into delete mutations on broadcasts, api-keys, and webhooks pages.",
     "files": [

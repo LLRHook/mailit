@@ -31,6 +31,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { CopyButton } from "@/components/shared/copy-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface ApiKey {
   id: string;
@@ -53,6 +54,7 @@ export default function ApiKeysPage() {
   const [newKeyValue, setNewKeyValue] = useState("");
   const [name, setName] = useState("");
   const [permission, setPermission] = useState("full");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["api-keys"],
@@ -147,7 +149,7 @@ export default function ApiKeysPage() {
           className="text-muted-foreground hover:text-destructive"
           onClick={(e) => {
             e.stopPropagation();
-            deleteMutation.mutate(row.original.id);
+            setDeleteId(row.original.id);
           }}
         >
           <TrashIcon className="size-3.5" />
@@ -237,6 +239,15 @@ export default function ApiKeysPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        title="Delete API key"
+        description="This action cannot be undone. Any applications using this key will lose access."
+        onConfirm={() => { if (deleteId) deleteMutation.mutate(deleteId); }}
+        isPending={deleteMutation.isPending}
+      />
 
       {!isLoading && apiKeys.length === 0 ? (
         <EmptyState

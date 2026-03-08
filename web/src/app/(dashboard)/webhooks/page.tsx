@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
@@ -12,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Webhook {
   id: string;
@@ -22,6 +24,7 @@ interface Webhook {
 }
 
 export default function WebhooksPage() {
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -99,7 +102,7 @@ export default function WebhooksPage() {
           className="text-muted-foreground hover:text-destructive"
           onClick={(e) => {
             e.stopPropagation();
-            deleteMutation.mutate(row.original.id);
+            setDeleteId(row.original.id);
           }}
         >
           <TrashIcon className="size-3.5" />
@@ -135,6 +138,14 @@ export default function WebhooksPage() {
           isLoading={isLoading}
         />
       )}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        title="Delete webhook"
+        description="This action cannot be undone. You will stop receiving event notifications at this endpoint."
+        onConfirm={() => { if (deleteId) deleteMutation.mutate(deleteId); }}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

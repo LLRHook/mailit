@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
@@ -12,6 +13,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 interface Broadcast {
   id: string;
@@ -27,6 +29,7 @@ interface Broadcast {
 export default function BroadcastsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["broadcasts"],
@@ -103,7 +106,7 @@ export default function BroadcastsPage() {
           className="text-muted-foreground hover:text-destructive"
           onClick={(e) => {
             e.stopPropagation();
-            deleteMutation.mutate(row.original.id);
+            setDeleteId(row.original.id);
           }}
         >
           <TrashIcon className="size-3.5" />
@@ -137,6 +140,14 @@ export default function BroadcastsPage() {
           onRowClick={(row) => router.push(`/broadcasts/${row.id}`)}
         />
       )}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        title="Delete broadcast"
+        description="This action cannot be undone. Are you sure you want to delete this broadcast?"
+        onConfirm={() => { if (deleteId) deleteMutation.mutate(deleteId); }}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }
