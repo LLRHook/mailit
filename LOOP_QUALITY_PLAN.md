@@ -17,7 +17,7 @@
 | 7 | P2 | missing-test | `web/src/components/shared/api-drawer.tsx` | Add unit test for ApiDrawer component | done | — |
 | 8 | P2 | missing-test | `web/src/lib/api.ts` | Add unit tests for API client functions | skip (jsdom localStorage broken on this Node) | — |
 | 9 | P2 | missing-test | `web/src/lib/store.ts` | Add unit tests for Zustand store | done | — |
-| 10 | P2 | missing-test | `web/src/app/(dashboard)/audience/page.tsx` | Add page test for audience dashboard | todo | — |
+| 10 | P2 | missing-test | `web/src/app/(dashboard)/audience/page.tsx` | Add page test for audience dashboard | done | — |
 | 11 | P2 | missing-test | `web/src/app/(dashboard)/metrics/page.tsx` | Add page test for metrics dashboard | todo | — |
 | 12 | P2 | missing-test | `web/src/app/(dashboard)/broadcasts/page.tsx` | Add page test for broadcasts list page | skip (modified on loop-features) | — |
 | 13 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/new/page.tsx` | Add page test for new broadcast page | todo | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 9
-- **Last completed task**: #9 (add tests for Zustand store)
-- **Next task**: #10
+- **Current iteration**: 10
+- **Last completed task**: #10 (add page test for audience dashboard)
+- **Next task**: #11
