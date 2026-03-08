@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-08 (iteration 8 — auto-refresh toggle for emails)
-- **Next task to pick**: task-09
+- **Last completed task**: task-09 (iteration 9 — webhook event descriptions)
+- **Next task to pick**: task-10
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -112,7 +112,7 @@
     "id": "task-09",
     "title": "Add webhook event type descriptions",
     "priority": 8,
-    "status": "todo",
+    "status": "done",
     "deps": [],
     "description": "The webhook creation page (web/src/app/(dashboard)/webhooks/new/page.tsx) lists event types but doesn't describe what each event means. Add descriptive text for each event type to help users configure webhooks.",
     "files": ["web/src/app/(dashboard)/webhooks/new/page.tsx"],
