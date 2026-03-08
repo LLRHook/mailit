@@ -24,13 +24,13 @@
 | 14 | P3 | missing-test | `web/src/app/(dashboard)/broadcasts/[id]/page.tsx` | Add page test for broadcast detail page | done | — |
 | 15 | P3 | missing-test | `web/src/app/(dashboard)/webhooks/new/page.tsx` | Add page test for new webhook page | done | — |
 | 16 | P3 | missing-test | `web/src/app/(dashboard)/templates/new/page.tsx` | Add page test for new template page | done | — |
-| 17 | P3 | missing-test | `web/src/app/(dashboard)/templates/[id]/page.tsx` | Add page test for template detail page | todo | — |
+| 17 | P3 | missing-test | `web/src/app/(dashboard)/templates/[id]/page.tsx` | Add page test for template detail page | done | — |
 | 18 | P3 | missing-test | `web/src/app/(dashboard)/domains/[domainId]/page.tsx` | Add page test for domain detail page | todo | — |
 | 19 | P3 | missing-test | `web/src/app/(dashboard)/emails/[emailId]/page.tsx` | Add page test for email detail page | todo | — |
 | 20 | P3 | missing-test | `web/src/middleware.ts` | Add unit test for Next.js middleware (auth redirect logic) | todo | — |
 
 ## State
 
-- **Current iteration**: 15
-- **Last completed task**: #16 (add page test for new template page)
-- **Next task**: #17
+- **Current iteration**: 16
+- **Last completed task**: #17 (add page test for template detail page)
+- **Next task**: #18
