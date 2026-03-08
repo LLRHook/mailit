@@ -8,8 +8,8 @@
 - **Full validation command**: `cd web && npm run lint && npx vitest run && npm run build`
 
 ## Current State
-- **Last completed task**: task-05 (iteration 5 — relative time display)
-- **Next task to pick**: task-06
+- **Last completed task**: task-06 (iteration 6 — command palette with Cmd+K)
+- **Next task to pick**: task-07
 - **Branch conflict check**: Zero file overlap with worktree-loop-quality (quality touches setup.ts, error-boundary/stat-card/use-mobile/utils tests; features touches dashboard, data-table, confirm-dialog, page components)
 
 ## Task List
@@ -79,7 +79,7 @@
     "id": "task-06",
     "title": "Add keyboard shortcut for global search navigation",
     "priority": 5,
-    "status": "todo",
+    "status": "done",
     "deps": ["task-01"],
     "description": "Add Cmd+K / Ctrl+K keyboard shortcut that opens a command palette (using the existing cmdk dependency) for quick navigation between pages. The cmdk package is already in package.json but unused.",
     "files": [
