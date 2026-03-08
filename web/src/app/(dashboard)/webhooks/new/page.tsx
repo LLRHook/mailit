@@ -13,12 +13,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const availableEvents = [
-  { id: "email.sent", label: "Email Sent" },
-  { id: "email.delivered", label: "Email Delivered" },
-  { id: "email.bounced", label: "Email Bounced" },
-  { id: "email.opened", label: "Email Opened" },
-  { id: "email.clicked", label: "Email Clicked" },
-  { id: "email.complained", label: "Email Complained" },
+  { id: "email.sent", label: "Email Sent", description: "Triggered when an email is accepted for delivery" },
+  { id: "email.delivered", label: "Email Delivered", description: "Triggered when the recipient's mail server confirms receipt" },
+  { id: "email.bounced", label: "Email Bounced", description: "Triggered when delivery fails permanently or temporarily" },
+  { id: "email.opened", label: "Email Opened", description: "Triggered when the recipient opens the email (via tracking pixel)" },
+  { id: "email.clicked", label: "Email Clicked", description: "Triggered when the recipient clicks a tracked link" },
+  { id: "email.complained", label: "Email Complained", description: "Triggered when the recipient marks the email as spam" },
 ];
 
 export default function NewWebhookPage() {
@@ -95,6 +95,9 @@ export default function NewWebhookPage() {
                     <span className="text-sm font-medium">{event.label}</span>
                     <p className="text-xs text-muted-foreground font-mono">
                       {event.id}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {event.description}
                     </p>
                   </div>
                 </label>
