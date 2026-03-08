@@ -22,8 +22,6 @@ func NewPgxTracer() *PgxTracer {
 	}
 }
 
-type pgxSpanKey struct{}
-
 // TraceQueryStart creates a span when a database query begins.
 func (t *PgxTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
 	ctx, _ = t.tracer.Start(ctx, "db.query",

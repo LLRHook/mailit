@@ -245,7 +245,9 @@ func (s *Sender) deliverViaRelay(
 ) {
 	addr := fmt.Sprintf("%s:%d", s.relayHost, s.relayPort)
 	for _, rcpt := range recipients {
-		s.deliverToHost(ctx, addr, from, []string{rcpt}, message, result)
+		if err := s.deliverToHost(ctx, addr, from, []string{rcpt}, message, result); err != nil {
+			s.logger.Warn("relay delivery failed", "relay", addr, "recipient", rcpt, "error", err)
+		}
 	}
 }
 
