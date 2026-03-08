@@ -8,3 +8,4 @@
 | 3 | 2026-03-08 | Task #3: test useIsMobile | Added 5 tests for `useIsMobile` hook (desktop, mobile, boundary 767/768, media query change). 65 tests pass, 0 lint errors. |
 | 4 | 2026-03-08 | Task #4: test ErrorBoundary | Added 4 tests for ErrorBoundary (renders children, default fallback, custom fallback, reset). 69 tests pass, 0 lint errors. |
 | 5 | 2026-03-08 | Task #5: test StatCard | Added 5 tests for StatCard (title/value, string value, up trend, down trend, no change). 74 tests pass, 0 lint errors. |
+| 6 | 2026-03-08 | Task #6: test DateRangePicker | Added 5 tests for DateRangePicker (placeholder, date range, from-only, popover open, className). 79 tests pass, 0 lint errors. |

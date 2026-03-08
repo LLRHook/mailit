@@ -13,7 +13,7 @@
 | 3 | P1 | missing-test | `web/src/hooks/use-mobile.ts` | Add unit test for `useMobile` hook | done | — |
 | 4 | P1 | missing-test | `web/src/components/shared/error-boundary.tsx` | Add unit test for ErrorBoundary component | done | — |
 | 5 | P1 | missing-test | `web/src/components/shared/stat-card.tsx` | Add unit test for StatCard component | done | — |
-| 6 | P1 | missing-test | `web/src/components/shared/date-range-picker.tsx` | Add unit test for DateRangePicker component | todo | — |
+| 6 | P1 | missing-test | `web/src/components/shared/date-range-picker.tsx` | Add unit test for DateRangePicker component | done | — |
 | 7 | P2 | missing-test | `web/src/components/shared/api-drawer.tsx` | Add unit test for ApiDrawer component | todo | — |
 | 8 | P2 | missing-test | `web/src/lib/api.ts` | Add unit tests for API client functions | todo | — |
 | 9 | P2 | missing-test | `web/src/lib/store.ts` | Add unit tests for Zustand store | todo | — |
@@ -31,6 +31,6 @@
 
 ## State
 
-- **Current iteration**: 5
-- **Last completed task**: #5 (add tests for StatCard component)
-- **Next task**: #6
+- **Current iteration**: 6
+- **Last completed task**: #6 (add tests for DateRangePicker component)
+- **Next task**: #7
