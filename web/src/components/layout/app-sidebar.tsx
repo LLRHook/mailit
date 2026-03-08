@@ -1,5 +1,6 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import {
   Sidebar,
@@ -25,6 +26,8 @@ import {
   Settings,
   Send,
   LogOut,
+  SunIcon,
+  MoonIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +47,7 @@ const navItems = [
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   const handleLogout = () => {
     localStorage.removeItem("mailit_token");
@@ -80,6 +84,16 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          <SunIcon className="mr-2 h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+          <MoonIcon className="absolute mr-2 h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+          Toggle theme
+        </Button>
         <Button
           variant="ghost"
           size="sm"
