@@ -27,10 +27,10 @@
 | 17 | P3 | missing-test | `web/src/app/(dashboard)/templates/[id]/page.tsx` | Add page test for template detail page | done | — |
 | 18 | P3 | missing-test | `web/src/app/(dashboard)/domains/[domainId]/page.tsx` | Add page test for domain detail page | done | — |
 | 19 | P3 | missing-test | `web/src/app/(dashboard)/emails/[emailId]/page.tsx` | Add page test for email detail page | done | — |
-| 20 | P3 | missing-test | `web/src/middleware.ts` | Add unit test for Next.js middleware (auth redirect logic) | todo | — |
+| 20 | P3 | missing-test | `web/src/middleware.ts` | Add unit test for Next.js middleware (auth redirect logic) | done | — |
 
 ## State
 
-- **Current iteration**: 18
-- **Last completed task**: #19 (add page test for email detail page)
-- **Next task**: #20
+- **Current iteration**: 19
+- **Last completed task**: #20 (add unit test for middleware)
+- **Next task**: all tasks complete — plan finished
