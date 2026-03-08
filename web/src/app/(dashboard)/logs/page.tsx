@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { ScrollTextIcon } from "lucide-react";
+import { ScrollTextIcon, AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -111,7 +113,7 @@ const columns: ColumnDef<LogEntry>[] = [
 export default function LogsPage() {
   const [level, setLevel] = useState("all");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["logs", level],
     queryFn: () =>
       api
@@ -138,7 +140,23 @@ export default function LogsPage() {
         </Select>
       </PageHeader>
 
-      {!isLoading && logs.length === 0 ? (
+      {isError ? (
+        <Card className="bg-card border-border">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="rounded-full bg-destructive/10 p-4 mb-4">
+              <AlertTriangleIcon className="h-8 w-8 text-destructive" />
+            </div>
+            <h3 className="text-lg font-medium">Failed to load logs</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              {error?.message || "An unexpected error occurred while fetching logs."}
+            </p>
+            <Button onClick={() => refetch()} size="sm" className="mt-4">
+              <RefreshCwIcon className="mr-2 size-4" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : !isLoading && logs.length === 0 ? (
         <EmptyState
           icon={ScrollTextIcon}
           title="No logs yet"
