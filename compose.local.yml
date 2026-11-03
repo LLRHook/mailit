@@ -1,0 +1,97 @@
+# Local-only profile. All exposed ports bind to loopback; mail is captured by Mailpit.
+name: mailit-local
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LOCAL_API_PORT:-18080}:8080"
+      - "127.0.0.1:${LOCAL_SMTP_PORT:-11025}:1025"
+    environment:
+      MAILIT_DATABASE__HOST: postgres
+      MAILIT_DATABASE__PORT: "5432"
+      MAILIT_DATABASE__USER: mailit
+      MAILIT_DATABASE__PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/local.sh init first}
+      MAILIT_DATABASE__DBNAME: mailit
+      MAILIT_DATABASE__SSLMODE: disable
+      MAILIT_REDIS__ADDR: redis:6379
+      MAILIT_AUTH__JWT_SECRET: ${JWT_SECRET:?Run scripts/local.sh init first}
+      MAILIT_DKIM__MASTER_ENCRYPTION_KEY: ${DKIM_MASTER_KEY:?Run scripts/local.sh init first}
+      MAILIT_SERVER__HTTP_ADDR: ":8080"
+      MAILIT_SERVER__BASE_URL: http://localhost:${LOCAL_API_PORT:-18080}
+      MAILIT_SERVER__CORS_ORIGINS: http://localhost:${LOCAL_WEB_PORT:-13000}
+      MAILIT_SMTP_OUTBOUND__HOSTNAME: mailit.local
+      MAILIT_SMTP_OUTBOUND__HELO_DOMAIN: mailit.local
+      MAILIT_SMTP_OUTBOUND__RELAY_MODE: relay
+      MAILIT_SMTP_OUTBOUND__RELAY_HOST: mailpit
+      MAILIT_SMTP_OUTBOUND__RELAY_PORT: "1025"
+      MAILIT_SMTP_INBOUND__ENABLED: "true"
+      MAILIT_SMTP_INBOUND__LISTEN_ADDR: ":1025"
+      MAILIT_SMTP_INBOUND__DOMAIN: mailit.local
+      MAILIT_STORAGE__LOCAL_PATH: /data/attachments
+    volumes:
+      - attachments:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${LOCAL_API_PORT:-18080}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LOCAL_WEB_PORT:-13000}:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${LOCAL_API_PORT:-18080}
+      NEXTAUTH_URL: http://localhost:${LOCAL_WEB_PORT:-13000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Run scripts/local.sh init first}
+    depends_on:
+      api:
+        condition: service_healthy
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mailit
+      POSTGRES_DB: mailit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/local.sh init first}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U mailit -d mailit"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes", --maxmemory-policy, noeviction]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    ports:
+      - "127.0.0.1:${LOCAL_INBOX_PORT:-18025}:8025"
+    volumes:
+      - mailpit:/data
+volumes:
+  postgres:
+  redis:
+  attachments:
+  mailpit:

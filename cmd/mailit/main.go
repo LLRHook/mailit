@@ -231,6 +231,12 @@ func runServe(configPath string) {
 		ConnectTimeout: cfg.SMTPOutbound.ConnectTimeout,
 		SendTimeout:    cfg.SMTPOutbound.SendTimeout,
 		MaxRecipients:  cfg.SMTPOutbound.MaxRecipients,
+		RelayMode:      cfg.SMTPOutbound.RelayMode,
+		RelayHost:      cfg.SMTPOutbound.RelayHost,
+		RelayPort:      cfg.SMTPOutbound.RelayPort,
+		RelayUsername:  cfg.SMTPOutbound.RelayUsername,
+		RelayPassword:  cfg.SMTPOutbound.RelayPassword,
+		RelayTLS:       cfg.SMTPOutbound.RelayTLS,
 	}, dnsResolver, logger)
 	emailSenderAdapter := engine.NewWorkerAdapter(smtpSender)
 
@@ -268,7 +274,7 @@ func runServe(configPath string) {
 		Webhook:         service.NewWebhookService(webhookRepo),
 		InboundEmail:    service.NewInboundEmailService(inboundEmailRepo),
 		Log:             service.NewLogService(logRepo),
-		Metrics: service.NewMetricsService(metricsRepo),
+		Metrics:         service.NewMetricsService(metricsRepo),
 		Settings: service.NewSettingsService(
 			settingsRepo,
 			invitationRepo,
@@ -324,12 +330,12 @@ func runServe(configPath string) {
 
 	// --- HTTP Server ---
 	httpServer := server.New(server.Config{
-		Addr:           cfg.Server.HTTPAddr,
-		ReadTimeout:    cfg.Server.ReadTimeout,
-		WriteTimeout:   cfg.Server.WriteTimeout,
-		JWTSecret:      cfg.Auth.JWTSecret,
-		APIKeyPrefix:   cfg.Auth.APIKeyPrefix,
-		CORSOrigins:    cfg.Server.CORSOrigins,
+		Addr:         cfg.Server.HTTPAddr,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		JWTSecret:    cfg.Auth.JWTSecret,
+		APIKeyPrefix: cfg.Auth.APIKeyPrefix,
+		CORSOrigins:  cfg.Server.CORSOrigins,
 		RateLimitCfg: middleware.RateLimitConfig{
 			Enabled:    cfg.RateLimit.Enabled,
 			DefaultRPS: cfg.RateLimit.DefaultRPS,
@@ -347,13 +353,13 @@ func runServe(configPath string) {
 
 	// --- Worker Mux ---
 	workerHandlers := worker.Handlers{
-		EmailSend:      worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, trackingLinkRepo, emailSenderAdapter, webhookDispatchFn, metricsIncrementFn, cfg.Server.BaseURL, logger),
-		EmailBatchSend: worker.NewBatchEmailSendHandler(asynqClient, logger),
-		BroadcastSend:  worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, templateVersionRepo, asynqClient, logger),
-		DomainVerify:   worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
-		Bounce:         worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),
-		Inbound:        worker.NewInboundHandler(inboundEmailRepo, webhookDispatchFn, logger),
-		Cleanup:        worker.NewCleanupHandler(webhookEventRepo, logRepo, logger),
+		EmailSend:        worker.NewEmailSendHandler(emailRepo, emailEventRepo, domainRepo, suppressionRepo, trackingLinkRepo, emailSenderAdapter, webhookDispatchFn, metricsIncrementFn, cfg.Server.BaseURL, logger),
+		EmailBatchSend:   worker.NewBatchEmailSendHandler(asynqClient, logger),
+		BroadcastSend:    worker.NewBroadcastSendHandler(broadcastRepo, contactRepo, audienceRepo, emailRepo, templateVersionRepo, asynqClient, logger),
+		DomainVerify:     worker.NewDomainVerifyHandler(domainRepo, dnsRecordRepo, logger),
+		Bounce:           worker.NewBounceHandler(emailRepo, emailEventRepo, suppressionRepo, logger),
+		Inbound:          worker.NewInboundHandler(inboundEmailRepo, webhookDispatchFn, logger),
+		Cleanup:          worker.NewCleanupHandler(webhookEventRepo, logRepo, logger),
 		WebhookDeliver:   worker.NewWebhookDeliverHandler(dispatcher, logger),
 		MetricsAggregate: worker.NewMetricsAggregateHandler(pool, metricsRepo, logger),
 		ContactImport:    worker.NewContactImportHandler(importJobRepo, contactRepo, logger),

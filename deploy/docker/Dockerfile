@@ -15,10 +15,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION:
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata && \
-    addgroup -S mailit && adduser -S mailit -G mailit
+    addgroup -S mailit && adduser -S mailit -G mailit && \
+    mkdir -p /data/attachments && chown -R mailit:mailit /data
+
+WORKDIR /app
 
 COPY --from=builder /mailit /usr/local/bin/mailit
-COPY --from=builder /app/db/migrations /migrations
+COPY --from=builder /app/db/migrations /app/db/migrations
 COPY --from=builder /app/config/mailit.example.yaml /etc/mailit/mailit.yaml
 
 USER mailit

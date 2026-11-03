@@ -173,6 +173,10 @@ Every send checks the suppression list first — suppressed addresses are reject
 
 ## Quick Start
 
+For a complete local installation with no hosting account, follow
+[Local-only Mailit](docs/local-only.md). It includes persistent Postgres and Redis,
+the dashboard, and a Mailpit inbox, with all published ports bound to localhost.
+
 ### Prerequisites
 
 - Go 1.25+

@@ -247,6 +247,11 @@ func (s *Sender) deliverViaRelay(
 	for _, rcpt := range recipients {
 		if err := s.deliverToHost(ctx, addr, from, []string{rcpt}, message, result); err != nil {
 			s.logger.Warn("relay delivery failed", "relay", addr, "recipient", rcpt, "error", err)
+			if _, recorded := result.Recipients[rcpt]; !recorded {
+				result.Recipients[rcpt] = RecipientResult{
+					Status: "deferred", Message: err.Error(), Permanent: false,
+				}
+			}
 		}
 	}
 }
@@ -345,7 +350,12 @@ func (s *Sender) deliverToHost(
 	result *SendResult,
 ) error {
 	start := time.Now()
-	addr := host + ":25"
+	addr := host
+	serverName, _, err := net.SplitHostPort(host)
+	if err != nil {
+		serverName = host
+		addr = net.JoinHostPort(host, "25")
+	}
 
 	// Connect with timeout.
 	dialer := net.Dialer{Timeout: s.connectTimeout}
@@ -361,7 +371,7 @@ func (s *Sender) deliverToHost(
 		return fmt.Errorf("setting deadline: %w", err)
 	}
 
-	client, err := smtp.NewClient(conn, host)
+	client, err := smtp.NewClient(conn, serverName)
 	if err != nil {
 		_ = conn.Close()
 		return fmt.Errorf("creating SMTP client for %s: %w", host, err)
@@ -376,7 +386,7 @@ func (s *Sender) deliverToHost(
 	// Attempt STARTTLS.
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		tlsConfig := &tls.Config{
-			ServerName: host,
+			ServerName: serverName,
 		}
 		if err := client.StartTLS(tlsConfig); err != nil {
 			if s.tlsPolicy == "enforce" {
@@ -729,7 +739,7 @@ func buildMultipartMixed(buf *bytes.Buffer, headers textproto.MIMEHeader, msg *O
 
 // lineWrapper wraps base64 output at the specified line length with CRLF.
 type lineWrapper struct {
-	writer io.Writer
+	writer  io.Writer
 	lineLen int
 	current int
 }
