@@ -24,7 +24,7 @@ func TestSendEmailUsesConfiguredRelayPort(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 		_, _ = io.WriteString(conn, "220 localhost SMTP\r\n")
 		reader := bufio.NewReader(conn)
